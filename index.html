@@ -100,6 +100,27 @@ button.pill{cursor:pointer}
 .check input{width:auto;margin-top:5px}
 .check label.done span{color:var(--muted);text-decoration:line-through}
 .budget-row{display:grid;grid-template-columns:1fr 130px auto;gap:8px;align-items:center}
+.vc-btns{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.vc-mic{font-size:1.05rem;padding:14px 22px;border-radius:999px}
+.vc-mic.on{background:#C0392B;border-color:#C0392B;animation:vcp 1.2s infinite}
+@keyframes vcp{50%{opacity:.75}}
+.vc-up{cursor:pointer;display:inline-flex;align-items:center}
+.vc-st{min-height:1.2em;font-weight:600}
+.vc,.vc-draft{min-width:0;max-width:100%}
+.vc-draft .tbl{max-width:100%;overflow-x:auto}
+.vc-line>*{min-width:0}
+.vc-draft{border:1px dashed var(--line,#ccc);border-radius:12px;padding:12px;margin:12px 0}
+.vc-tx{white-space:pre-wrap;opacity:.85}
+.vc-line{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.vc-skip{opacity:.45}
+.vc-cards{display:grid;gap:8px;margin:8px 0}
+.vc-card{border:1px solid var(--line,#ddd);border-radius:10px;padding:8px;display:grid;gap:6px}
+.vc-r1{display:grid;grid-template-columns:auto 1fr 90px;gap:6px;align-items:center}
+.vc-r2{display:grid;grid-template-columns:1.4fr 1fr 70px;gap:6px}
+.vc-r1>*,.vc-r2>*{min-width:0;width:100%}
+.vc-r1 input[type=checkbox],.vc-line input[type=checkbox]{width:20px;height:20px}
+.vc-line{display:flex}
+.vc-set{margin-top:12px}
 .dlg{position:fixed;inset:0;z-index:25;background:rgba(10,15,25,.45);display:grid;place-items:center;padding:16px;overflow:auto}
 .edit-card{width:min(560px,100%);max-height:90vh;overflow:auto}
 .answer{white-space:pre-wrap;background:var(--bg);border-radius:8px;padding:12px;font-size:.92rem;line-height:1.7}
@@ -180,7 +201,7 @@ const INV_ST = [["prep","قيد التحضير"],["sub","مقدّم لبهوان
 const EQ_ST = [["ok","يعمل","ok"],["maint","تحت الصيانة","mt"],["down","لا يعمل","dn"]];
 const ATT_ST = [["P","حاضر"],["A","غائب"],["L","إجازة"]];
 
-const S = { opening:[], settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), expenses:[], workers:[], attendance:{}, deductions:[], payroll:{}, progress:[], materials:[], issues:[], invoices:[], checklist:[], equipment:[], equipLog:{}, subs:[], subWork:[], subPay:[] };
+const S = { opening:[], settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), expenses:[], workers:[], attendance:{}, deductions:[], payroll:{}, progress:[], materials:[], issues:[], invoices:[], checklist:[], equipment:[], equipLog:{}, subs:[], subWork:[], subPay:[], voice:[] };
 let db=null, user=null, downloads=null, sampler=null, me=null, tab="dash", ready=false, names={};
 let attDate=today(), payMonth=month(today()), finMonth=month(today()), eqDate=today(), invFrom="", invTo=today(), subSel="";
 let advAnswer="", advBusy=false, advCtl=null;
@@ -431,7 +452,7 @@ function vHr(){
 /* ---------- الإنتاج ---------- */
 function vSite(){
   const t=today(), am=actMap();
-  return `
+  return `${vVoice()}
   <section class="panel">
     <h2>تسجيل الإنتاج اليومي</h2>
     <p class="note">الإنتاج المسجل في الحضور لكل عامل يظهر هنا تلقائياً. استخدم هذا النموذج فقط للأعمال غير المسجلة باسم عامل، حتى لا تتكرر الأمتار.</p>
@@ -474,6 +495,134 @@ function vSite(){
   </div>`;
 }
 
+
+
+/* ---------- التقرير الصوتي ---------- */
+const VC={busy:false,status:"",rec:null,chunks:[],t0:0,timer:null,drafts:[],ai:null,date:null,stream:null};
+const VC_MAX=240;
+const voiceOn=()=>typeof gsCall==="function";
+function vcSet(t){ VC.status=t; const el=document.getElementById("vc-status"); if(el) el.textContent=tr(t); }
+function vVoice(){
+  if(!voiceOn()) return `<section class="panel"><h2>التقرير الصوتي</h2><p class="note">التقرير الصوتي يعمل في تطبيق الجوال (المسارة) فقط.</p></section>`;
+  const d=VC.date||today(); const recOn=!!VC.rec; if(!VC.ai&&!VC.aiTried){ VC.aiTried=true; setTimeout(vcStatus,0); }
+  const wOpts=(sel)=>`<option value="">— غير محدد —</option>`+activeWorkers().map(w=>`<option value="${esc(w.id)}" ${w.id===sel?"selected":""}>${esc(w.name)}</option>`).join("");
+  const aOpts=(sel)=>acts().map(a=>`<option value="${a.key}" ${a.key===sel?"selected":""}>${esc(a.name)}</option>`).join("");
+  const eOpts=(sel)=>`<option value="">—</option>`+S.equipment.map(e=>`<option value="${esc(e.id)}" ${e.id===sel?"selected":""}>${esc(e.name)} ${esc(e.code||"")}</option>`).join("");
+  const drafts=VC.drafts.map((D,i)=>`
+    <form class="vc-draft" onsubmit="return false">
+      <div class="row"><h3>مسودة ${i+1} · ${esc(D.date)}${D.src?` · <span class="ref">${esc(D.src)}</span>`:""}</h3><span class="pill warn">بانتظار التأكيد</span></div>
+      ${D.summary?`<p><b>${esc(D.summary)}</b></p>`:""}
+      <details><summary>النص المسموع</summary><p class="vc-tx">${esc(D.transcript||"")}</p></details>
+      ${D.entries.length?`<div class="vc-cards">${D.entries.map((e,j)=>`<div class="vc-card ${e.skip?"vc-skip":""}">
+        <div class="vc-r1"><input type="checkbox" data-vx="${i}.entries.${j}.use" ${e.skip?"":"checked"} aria-label="تضمين"><select data-vx="${i}.entries.${j}.wid" aria-label="العامل">${wOpts(e.wid)}</select><select data-vx="${i}.entries.${j}.status" aria-label="الحالة">${opts(ATT_ST,e.status||"P")}</select></div>
+        ${!e.wid&&e.name?`<div class="ref">قيل: ${esc(e.name)} — اختر العامل، أو اتركه «غير محدد» ليُسجّل كإنتاج عام</div>`:""}
+        <div class="vc-r2"><select data-vx="${i}.entries.${j}.act" aria-label="البند">${aOpts(e.act)}</select><input data-vx="${i}.entries.${j}.location" value="${esc(e.location||"")}" placeholder="الموقع A1-3-302" aria-label="الموقع"><input type="number" step="0.1" min="0" inputmode="decimal" data-vx="${i}.entries.${j}.qty" value="${e.qty??""}" placeholder="م²" aria-label="م²"></div></div>`).join("")}</div>`:`<p class="note">لم يُذكر إنجاز لعمال في هذا التسجيل.</p>`}
+      ${D.issues.length?`<h3>مشاكل وتأخير</h3>${D.issues.map((x,j)=>`<div class="vc-line"><input type="checkbox" data-vx="${i}.issues.${j}.use" ${x.skip?"":"checked"}><input data-vx="${i}.issues.${j}.text" value="${esc(x.text)}" style="flex:1"><input type="number" step="0.5" min="0" data-vx="${i}.issues.${j}.days" value="${x.days||""}" style="width:60px" aria-label="أيام" placeholder="أيام"></div>`).join("")}`:""}
+      ${D.equipment.length?`<h3>المعدات</h3>${D.equipment.map((x,j)=>`<div class="vc-line"><input type="checkbox" data-vx="${i}.equipment.${j}.use" ${x.skip?"":"checked"}><select data-vx="${i}.equipment.${j}.eid">${eOpts(x.eid)}</select><select data-vx="${i}.equipment.${j}.status">${opts(EQ_ST.map(s=>[s[0],s[1]]),x.status)}</select><input data-vx="${i}.equipment.${j}.note" value="${esc(x.note||"")}" style="flex:1" placeholder="ملاحظة"></div>`).join("")}`:""}
+      ${D.materials.length?`<h3>مواد مستلمة من بهوان</h3>${D.materials.map((x,j)=>`<div class="vc-line"><input type="checkbox" data-vx="${i}.materials.${j}.use" ${x.skip?"":"checked"}><input data-vx="${i}.materials.${j}.item" value="${esc(x.item)}" style="flex:1"><input type="number" step="any" data-vx="${i}.materials.${j}.qty" value="${x.qty??""}" style="width:70px"><input data-vx="${i}.materials.${j}.unit" value="${esc(x.unit||"")}" style="width:70px"></div>`).join("")}`:""}
+      <div class="toolbar"><button type="button" class="btn" data-vok="${i}">تأكيد وحفظ في التقرير اليومي</button><button type="button" class="btn ghost" data-vdrop="${i}">تجاهل</button></div>
+    </form>`).join("");
+  const log=(S.voice||[]).slice(0,8);
+  return `
+  <section class="panel vc">
+    <div class="row"><h2>التقرير الصوتي</h2><div class="toolbar"><input type="date" id="vc-date" value="${d}" aria-label="تاريخ التقرير"></div></div>
+    <p class="note">سجّل رسالة صوتية أو ارفع رسالة واتساب. البرنامج يكتب الكلام ويستخرج العامل والبند والموقع والأمتار، ثم تراجعها وتضغط «تأكيد» فتدخل الحضور والإنتاج والرواتب. مثال: «أنا حمدي، خلصت 85 متر معجون أول وجه في A1 الدور التالت شقة 302».</p>
+    <div class="vc-btns">
+      <button class="btn vc-mic ${recOn?"on":""}" id="vc-rec" ${VC.busy&&!recOn?"disabled":""}>${recOn?"إيقاف وإرسال":"ابدأ التسجيل"}</button>
+      <label class="btn ghost vc-up">رفع رسالة صوتية / واتساب<input type="file" id="vc-file" accept="audio/*,.opus,.ogg,.m4a,.mp3,.aac,.wav,.amr" multiple hidden></label>
+    </div>
+    <p class="vc-st" id="vc-status" aria-live="polite">${esc(VC.status)}</p>
+    ${drafts}
+    ${isMgr()?`<details class="vc-set"${VC.ai&&!VC.ai.hasKey?" open":""}><summary>إعداد التقرير الصوتي (المدير)</summary>
+      <p class="note">${VC.ai?(VC.ai.hasKey?`مفعّل ✓ ${VC.ai.model?"· "+esc(VC.ai.model):""}`:"غير مفعّل بعد: يحتاج مفتاح Gemini مجاني من جوجل."):"…"}</p>
+      <ol class="note"><li>افتح <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> بحساب جوجل.</li><li>اضغط Create API key وانسخ المفتاح.</li><li>الصقه هنا واضغط حفظ.</li></ol>
+      <form class="entry" id="f-aikey"><label>مفتاح Gemini<input id="ai-key" type="password" autocomplete="off" placeholder="AIza..."></label><button class="btn" type="submit">حفظ المفتاح</button></form>
+    </details>`:""}
+    ${log.length?`<details><summary>آخر التقارير الصوتية المؤكدة</summary><div class="tbl"><table><thead><tr><th>التاريخ</th><th>الملخص</th><th>سجّله</th><th></th></tr></thead><tbody>${log.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.summary||"")}<details><summary class="ref">النص</summary>${esc(x.transcript||"")}</details></td><td>${by(x.by)}</td><td>${delBtn("voice",x.id)}</td></tr>`).join("")}</tbody></table></div></details>`:""}
+  </section>`;
+}
+async function vcStatus(){ if(!voiceOn()||VC.ai) return; try{ VC.ai=await gsCall("apiAiStatus"); if(tab==="site") soft(); }catch(e){} }
+function vcB64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result).split(",")[1]||""); r.onerror=()=>rej(r.error); r.readAsDataURL(blob); }); }
+async function vcWav(blob){
+  const AC=window.AudioContext||window.webkitAudioContext; const ac=new AC();
+  let au; try{ au=await ac.decodeAudioData(await blob.arrayBuffer()); } finally { try{ ac.close(); }catch(e){} }
+  if(au.duration>VC_MAX+30) throw new Error("التسجيل أطول من 4 دقائق، قسّمه لرسائل أقصر");
+  const sr=16000, n=Math.max(1,Math.ceil(au.duration*sr)); const off=new OfflineAudioContext(1,n,sr);
+  const src=off.createBufferSource(); src.buffer=au; src.connect(off.destination); src.start(); const out=(await off.startRendering()).getChannelData(0);
+  const buf=new ArrayBuffer(44+out.length*2), dv=new DataView(buf); const ws=(o,s)=>{ for(let i=0;i<s.length;i++) dv.setUint8(o+i,s.charCodeAt(i)); };
+  ws(0,"RIFF"); dv.setUint32(4,36+out.length*2,true); ws(8,"WAVE"); ws(12,"fmt "); dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,1,true);
+  dv.setUint32(24,sr,true); dv.setUint32(28,sr*2,true); dv.setUint16(32,2,true); dv.setUint16(34,16,true); ws(36,"data"); dv.setUint32(40,out.length*2,true);
+  let peak=0; for(let i=0;i<out.length;i++){ const a=Math.abs(out[i]); if(a>peak) peak=a; } const g=peak>0.02&&peak<0.5?0.9/peak:1;
+  for(let i=0;i<out.length;i++){ const s=Math.max(-1,Math.min(1,out[i]*g)); dv.setInt16(44+i*2,s<0?s*0x8000:s*0x7FFF,true); }
+  return new Blob([buf],{type:"audio/wav"});
+}
+function vcMime(f){ const n=(f.name||"").toLowerCase(), t=(f.type||"").toLowerCase();
+  if(/ogg|opus/.test(t+n)) return "audio/ogg"; if(/mp3|mpeg/.test(t+n)) return "audio/mp3"; if(/aac|m4a|mp4/.test(t+n)) return "audio/aac"; if(/wav/.test(t+n)) return "audio/wav"; if(/flac/.test(t+n)) return "audio/flac"; return t||"audio/ogg"; }
+async function vcProcess(blob,src){
+  const date=VC.date||today(); VC.busy=true;
+  try{
+    vcSet("جارٍ تجهيز الصوت…"); let b64, mime;
+    try{ const w=await vcWav(blob); b64=await vcB64(w); mime="audio/wav"; }
+    catch(e){ if(/أطول/.test(e.message||"")) throw e; b64=await vcB64(blob); mime=vcMime(blob); }
+    vcSet("جارٍ الاستماع والتحليل… (10–30 ثانية)");
+    const r=await gsCall("apiVoice",b64,mime,date);
+    const wById=Object.fromEntries(workers().map(w=>[w.id,w]));
+    const actOk=k=>acts().some(a=>a.key===k)?k:"";
+    const D={date,src:src||"",transcript:r.transcript||"",summary:r.summary||"",
+      entries:(r.entries||[]).filter(e=>e&&(e.worker_id||e.worker_name||e.qty)).map(e=>{ const w=wById[e.worker_id]; return {wid:w?w.id:"",name:e.worker_name||"",status:["P","A","L"].includes(e.status)?e.status:"P",act:actOk(e.act)||(w&&w.act)||acts()[0].key,location:e.location||"",qty:e.qty==null||e.qty===""?"":Number(e.qty),in:e.in||"",out:e.out||""}; }),
+      issues:(r.issues||[]).filter(x=>x&&x.text).map(x=>({text:x.text,days:Number(x.days)||0})),
+      equipment:(r.equipment||[]).filter(x=>x&&(x.equip_id||x.name)).map(x=>({eid:S.equipment.some(e=>e.id===x.equip_id)?x.equip_id:"",status:["ok","maint","down"].includes(x.status)?x.status:"down",note:[x.note,!S.equipment.some(e=>e.id===x.equip_id)?x.name:""].filter(Boolean).join(" · ")})),
+      materials:(r.materials||[]).filter(x=>x&&x.item).map(x=>({item:x.item,qty:x.qty===""||x.qty==null?"":Number(x.qty),unit:x.unit||""}))};
+    VC.drafts.push(D); vcSet("تم التحليل. راجع المسودة ثم اضغط «تأكيد».");
+  }catch(e){ vcSet((e&&e.message)||"تعذّر التحليل"); toast((e&&e.message)||"تعذّر التحليل"); }
+  finally{ VC.busy=false; render(); }
+}
+async function vcStart(){
+  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){ vcSet("الميكروفون غير متاح هنا. استخدم «رفع رسالة صوتية» أو تطبيق الجوال."); return; }
+  try{ VC.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }
+  catch(e){ vcSet("لم يُسمح باستخدام الميكروفون. اسمح للتطبيق من إعدادات الجوال ← التطبيقات ← المسارة ← الأذونات."); return; }
+  const mr=new MediaRecorder(VC.stream); VC.chunks=[]; mr.ondataavailable=e=>{ if(e.data&&e.data.size) VC.chunks.push(e.data); };
+  mr.onstop=()=>{ VC.stream?.getTracks().forEach(t=>t.stop()); VC.stream=null; clearInterval(VC.timer); const blob=new Blob(VC.chunks,{type:mr.mimeType||"audio/webm"}); VC.rec=null; if(blob.size<1500){ vcSet("التسجيل قصير جداً"); render(); return; } vcProcess(blob,"تسجيل مباشر"); };
+  mr.start(1000); VC.rec=mr; VC.t0=Date.now(); VC.busy=true; render();
+  VC.timer=setInterval(()=>{ const s=Math.round((Date.now()-VC.t0)/1000); vcSet(`جارٍ التسجيل… ${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}  — تكلّم بوضوح ثم اضغط «إيقاف وإرسال»`); if(s>=VC_MAX) mr.stop(); },500);
+}
+async function vcFiles(files){ for(const f of files){ if(!f) continue; await vcProcess(f,f.name||"رسالة صوتية"); } }
+async function vcConfirm(i){
+  const D=VC.drafts[i]; if(!D) return; const date=D.date, now=new Date().toISOString(), ops=[];
+  const ents=D.entries.filter(e=>!e.skip);
+  const miss=ents.filter(e=>!e.wid&&!(Number(e.qty)>0)); if(miss.length){ toast("اختر العامل أو أدخل الكمية لكل سطر، أو ألغِ تحديده"); return; }
+  const rec={...attRec(date)}; const touched=[];
+  ents.forEach(e=>{ if(e.wid){ const r={...(rec[e.wid]||{})}; r.s=e.status||"P";
+      if(r.s==="P"){ r.in=e.in||r.in||"07:00"; r.out=e.out||r.out||"18:00"; r.act=e.act||r.act; if(e.location) r.loc=e.location; if(e.qty!==""&&e.qty!=null) r.qty=(r.act===e.act&&r.vq?Number(r.qty)||0:0)+Number(e.qty); r.vq=true; }
+      rec[e.wid]=r; if(!touched.includes(e.wid)) touched.push(e.wid); }
+    else ops.push({op:"add",c:"progress",data:{date,location:e.location||"",act:e.act,qty:Number(e.qty),notes:"تقرير صوتي"+(e.name?": "+e.name:""),by:me||null,createdAt:now}}); });
+  if(touched.length){ ops.push({op:"set",c:"attendance",id:date,data:{date,rec,by:me||null}});
+    touched.forEach(wid=>{ const w=workers().find(x=>x.id===wid)||{}; const r=rec[wid]; const q=r.s==="P"&&r.qty!==""&&r.qty!=null?Number(r.qty)||0:0; const id="att_"+date+"_"+wid;
+      if(q||S.progress.some(p=>p.id===id)) ops.push({op:"set",c:"progress",id,data:{date,location:r.loc||"",act:r.act||w.act||acts()[0].key,qty:q,notes:"من الحضور: "+(w.name||""),wid,fromAtt:true,createdAt:now,by:me||null}}); }); }
+  D.issues.filter(x=>!x.skip&&x.text).forEach(x=>ops.push({op:"add",c:"issues",data:{date,text:x.text,days:Number(x.days)||0,status:"open",by:me||null,createdAt:now}}));
+  const eqs=D.equipment.filter(x=>!x.skip&&x.eid); if(eqs.length){ const l=S.equipLog[date]||{}; const s={...(l.st||{})}, n={...(l.note||{})}; eqs.forEach(x=>{ s[x.eid]=x.status; if(x.note) n[x.eid]=x.note; }); ops.push({op:"set",c:"equipLog",id:date,data:{date,st:s,note:n,by:me||null}}); }
+  D.materials.filter(x=>!x.skip&&x.item).forEach(x=>ops.push({op:"add",c:"materials",data:{date,item:x.item,qty:Number(x.qty)||0,unit:x.unit||"",dn:"",by:me||null,createdAt:now}}));
+  ops.push({op:"add",c:"voice",data:{date,summary:D.summary,transcript:D.transcript,src:D.src,items:ents.length,by:me||null,createdAt:now}});
+  try{ vcSet("جارٍ الحفظ…"); await gsRun("apiBatch",ops); VC.drafts.splice(i,1); vcSet("تم الحفظ في الحضور والإنتاج ✓"); toast("تم الحفظ"); render(); }
+  catch(e){ vcSet((e&&e.message)||"تعذّر الحفظ"); }
+}
+function vcEdit(t){ const [i,k,j,f]=t.dataset.vx.split("."); const o=VC.drafts[i]?.[k]?.[j]; if(!o) return;
+  if(f==="use"){ o.skip=!t.checked; (t.closest(".vc-card")||t.closest(".vc-line"))?.classList.toggle("vc-skip",o.skip); return; }
+  o[f]=t.type==="number"?(t.value===""?"":Number(t.value)):t.value;
+  if(f==="wid"&&t.value){ const w=workers().find(x=>x.id===t.value); if(w&&w.act&&!o.act) o.act=w.act; } }
+document.addEventListener("click",async ev=>{ const t=ev.target.closest("button"); if(!t) return;
+  if(t.id==="vc-rec"){ ev.stopImmediatePropagation(); if(VC.rec) VC.rec.stop(); else if(!VC.busy) vcStart(); return; }
+  if(t.dataset.vok!=null){ ev.stopImmediatePropagation(); vcConfirm(+t.dataset.vok); return; }
+  if(t.dataset.vdrop!=null){ ev.stopImmediatePropagation(); VC.drafts.splice(+t.dataset.vdrop,1); vcSet(""); render(); return; }
+},true);
+document.addEventListener("change",ev=>{ const t=ev.target;
+  if(t.id==="vc-date"){ ev.stopImmediatePropagation(); VC.date=t.value||today(); return; }
+  if(t.id==="vc-file"){ ev.stopImmediatePropagation(); const fs=[...t.files]; t.value=""; vcFiles(fs); return; }
+  if(t.dataset&&t.dataset.vx){ ev.stopImmediatePropagation(); vcEdit(t); return; }
+},true);
+document.addEventListener("submit",async ev=>{ if(ev.target.id!=="f-aikey") return; ev.preventDefault(); ev.stopImmediatePropagation();
+  const k=document.getElementById("ai-key").value.trim(); if(!k) return; vcSet("جارٍ التحقق من المفتاح…");
+  try{ VC.ai=await gsCall("apiAiKey",k); vcSet("تم تفعيل التقرير الصوتي ✓"); toast("تم الحفظ"); }catch(e){ vcSet((e&&e.message)||"المفتاح غير صالح"); } render(); },true);
 
 /* ---------- الأعمال السابقة ---------- */
 function vPrev(){
@@ -1016,7 +1165,7 @@ function subscribeAll(){
   const map=(col,key)=>db.collection(col).onSnapshot(snap=>{ S[key]={}; snap.docs.forEach(d=>S[key][d.id]=d.data()); });
   list("expenses","expenses",sortDesc); list("workers","workers"); list("progress","progress",sortDesc); list("deductions","deductions",sortDesc);
   list("materials","materials",sortDesc); list("issues","issues",sortDesc); list("invoices","invoices",(a,b)=>(b.to||"").localeCompare(a.to||"")); list("checklist","checklist");
-  list("equipment","equipment"); list("opening","opening"); list("subs","subs"); list("subWork","subWork",sortDesc); list("subPay","subPay",sortDesc);
+  list("equipment","equipment"); list("opening","opening"); list("subs","subs"); list("subWork","subWork",sortDesc); list("subPay","subPay",sortDesc); list("voice","voice",sortDesc);
   map("attendance","attendance"); map("payroll","payroll"); map("equipLog","equipLog");
   db.doc("settings/main").onSnapshot(s=>{ if(s.exists){ const d=s.data(); S.settings={...DEFAULT_SETTINGS,...d,company:{...DEFAULT_SETTINGS.company,...(d.company||{})},client:{...DEFAULT_SETTINGS.client,...(d.client||{})},project:{...DEFAULT_SETTINGS.project,...(d.project||{})},activities:normActs(d.activities)}; } live(); });
 }
@@ -1035,6 +1184,7 @@ setInterval(()=>{ if(PIN&&!document.hidden&&!document.activeElement?.matches?.("
 document.addEventListener("visibilitychange",()=>{ if(PIN&&!document.hidden) gsCall("apiGetAll").then(gsApply).catch(()=>{}); });
 </script>
 
+<script>(function(){ if(!/[?&]share=1/.test(location.search)||!("caches" in window)) return; history.replaceState(null,"",location.pathname); const go=async()=>{ if(!PIN||!window.ME){ setTimeout(go,700); return; } try{ const c=await caches.open("shared"); const ks=await c.keys(); const fs=[]; for(const k of ks){ const r=await c.match(k); const b=await r.blob(); fs.push(new File([b],decodeURIComponent(r.headers.get("X-Name")||"voice"),{type:b.type})); await c.delete(k); } if(fs.length){ tab="site"; render(); window.scrollTo(0,0); vcFiles(fs); } }catch(e){ toast("تعذّر فتح الملف المشارك"); } }; go(); })();</script>
 <script>if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
 </html>

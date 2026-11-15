@@ -10,6 +10,12 @@
   "orientation": "portrait",
   "background_color": "#F3F4F6",
   "theme_color": "#1F5FA8",
+  "share_target": {
+    "action": "./share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {"title": "title", "text": "text", "files": [{"name": "audio", "accept": ["audio/*", ".opus", ".ogg", ".m4a", ".mp3", ".aac", ".wav", ".amr"]}]}
+  },
   "icons": [
     {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
     {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
