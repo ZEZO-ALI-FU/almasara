@@ -100,6 +100,21 @@ button.pill{cursor:pointer}
 .check input{width:auto;margin-top:5px}
 .check label.done span{color:var(--muted);text-decoration:line-through}
 .budget-row{display:grid;grid-template-columns:1fr 130px auto;gap:8px;align-items:center}
+.ag-wrap{max-height:70vh}
+table.ag{width:auto;border-collapse:separate;border-spacing:0}
+table.ag th,table.ag td{padding:2px;text-align:center;border-bottom:1px solid var(--sunk)}
+table.ag th{font-size:.72rem;line-height:1.1;position:sticky;top:0;background:var(--card,var(--bg));z-index:1}
+table.ag th span{display:block;opacity:.7}
+table.ag .ag-name{position:sticky;inset-inline-start:0;background:var(--card,var(--bg));z-index:2;text-align:start;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;font-size:.85rem;padding-inline:6px}
+.ag-c{width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:transparent;color:inherit;font-weight:700;cursor:pointer;padding:0}
+.ag-c:disabled{opacity:.25;cursor:default}
+.ag-P{background:#1E8E5A;border-color:#1E8E5A;color:#fff}
+.ag-A{background:#C0392B;border-color:#C0392B;color:#fff}
+.ag-L{background:#D68910;border-color:#D68910;color:#fff}
+.ag-fri{background:rgba(127,127,127,.12)}
+.ag-today{outline:2px solid var(--acc,#1F5FA8)}
+.ag-chk{display:flex;align-items:center;gap:6px}
+.ag-chk input{width:18px;height:18px}
 .vc-btns{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
 .vc-mic{font-size:1.05rem;padding:14px 22px;border-radius:999px}
 .vc-mic.on{background:#C0392B;border-color:#C0392B;animation:vcp 1.2s infinite}
@@ -407,7 +422,7 @@ function vHr(){
   const rows=aw.map(w=>({w,r:payRow(payMonth,w)}));
   const tot={sal:sum(rows,x=>x.w.salary),ded:sum(rows,x=>x.r.tded),net:sum(rows,x=>x.r.net),paid:sum(rows.filter(x=>x.r.paid),x=>x.r.paidAmount||x.r.net)};
   const pm=[...new Set([month(today()),...Object.keys(S.attendance).map(month),...S.deductions.map(d=>month(d.date))])].sort().reverse();
-  return `
+  return `${vAttGrid()}
   <section class="panel">
     <div class="row"><h2>الحضور والانصراف</h2><div class="toolbar"><input type="date" id="att-date" value="${attDate}" aria-label="التاريخ"><button class="btn ghost sm" id="att-all">الكل حاضر 07:00–18:00</button>${printBtn("attDay","طباعة اليوم")}${printBtn("attMonth","جدول الشهر")}</div></div>
     <p class="note">حاضر ${pres} من ${aw.length}. ساعات العمل = الانصراف − الحضور − ساعة غداء. الأجر اليومي = الراتب ÷ ${st().payDays||30}. إذا أنجز العامل أقل من هدفه اليومي يُخصم من أجر اليوم بنسبة ما لم ينجزه، وإذا أكمل الهدف يأخذ اليومية كاملة. اترك خانة الإنجاز فارغة إذا لم يُقَس عمله ذلك اليوم. أمتار كل عامل تُسجّل تلقائياً في الإنتاج والفواتير بالنشاط والموقع المختارين. في العمل الثنائي قسّم الأمتار بين العاملين، واجعل هدف كل واحد نصف هدف الفريق، حتى لا تُحسب الأمتار مرتين.</p>
@@ -448,6 +463,78 @@ function vHr(){
   </section>
   </div>`;
 }
+
+
+/* ---------- جدول الحضور الشهري (تعبئة سريعة وتعديل بأثر رجعي) ---------- */
+let agMonth=month(today());
+const AG={pend:new Set(),t:null,busy:false};
+const AG_CYCLE=["","P","A","L"], AG_LBL={"":"·",P:"ح",A:"غ",L:"إ"};
+function agLocal(date,rec){
+  S.attendance[date]={date,rec};
+  if(window.GS&&GS.data){ const arr=GS.data.attendance=GS.data.attendance||[]; const i=arr.findIndex(x=>x.id===date); const row={...(i>=0?arr[i]:{}),id:date,date,rec}; if(i>=0) arr[i]=row; else arr.push(row); }
+}
+function agOps(date){
+  const rec=attRec(date), now=new Date().toISOString(), ops=[{op:"set",c:"attendance",id:date,data:{date,rec,by:me||null}}];
+  Object.keys(rec).forEach(wid=>{ const id="att_"+date+"_"+wid; const r=rec[wid]; const q=r.s==="P"&&r.qty!==""&&r.qty!=null?Number(r.qty)||0:0;
+    if(S.progress.some(p=>p.id===id)){ const w=workers().find(x=>x.id===wid)||{}; ops.push({op:"set",c:"progress",id,data:{date,location:r.loc||"",act:r.act||w.act||acts()[0].key,qty:q,notes:"من الحضور: "+(w.name||""),wid,fromAtt:true,createdAt:now,by:me||null}}); } });
+  return ops;
+}
+async function agFlush(){
+  clearTimeout(AG.t); AG.t=null; if(AG.busy){ AG.t=setTimeout(agFlush,800); return; }
+  const dates=[...AG.pend]; if(!dates.length) return; AG.pend.clear(); AG.busy=true; agStatus("جارٍ الحفظ…");
+  try{
+    if(typeof gsCall==="function"){ const ops=dates.flatMap(agOps); const res=await gsCall("apiBatch",ops);
+      if(AG.pend.size){ const keep=[...AG.pend].map(d=>[d,attRec(d)]); gsApply(res); keep.forEach(([d,r])=>agLocal(d,r)); } else gsApply(res); }
+    else { for(const d of dates){ for(const o of agOps(d)) await setDoc(o.c+"/"+o.id,o.data); } }
+    agStatus(AG.pend.size?"جارٍ الحفظ…":"تم الحفظ ✓");
+  }catch(e){ dates.forEach(d=>AG.pend.add(d)); agStatus("تعذّر الحفظ، سيُعاد المحاولة…"); AG.t=setTimeout(agFlush,4000); }
+  finally{ AG.busy=false; if(AG.pend.size&&!AG.t) AG.t=setTimeout(agFlush,800); }
+}
+function agQueue(date){ AG.pend.add(date); clearTimeout(AG.t); AG.t=setTimeout(agFlush,1200); agStatus("تغييرات بانتظار الحفظ…"); }
+function agStatus(t){ const el=document.getElementById("ag-st"); if(el) el.textContent=tr(t); }
+function agSet(date,wid,s){
+  const rec={...attRec(date)}; const r={...(rec[wid]||{})};
+  if(!s){ delete rec[wid]; } else { r.s=s; if(s==="P"){ r.in=r.in||"07:00"; r.out=r.out||"18:00"; } rec[wid]=r; }
+  agLocal(date,rec); agQueue(date);
+}
+function vAttGrid(){
+  const m=agMonth, nd=daysIn(m), t=today(), aw=activeWorkers();
+  const ds=[...Array(nd)].map((_,i)=>`${m}-${String(i+1).padStart(2,"0")}`);
+  const wd=d=>new Date(d+"T12:00:00").getDay();
+  const dn=["أحد","اثن","ثلا","أرب","خمس","جمع","سبت"];
+  const startDef=(st().projectStart&&month(st().projectStart)===m)?st().projectStart:`${m}-01`;
+  { const w0=document.querySelector(".ag-wrap"); if(w0&&AG.m===m) AG.sl=w0.scrollLeft; else AG.sl=null; AG.m=m; }
+  setTimeout(()=>{ const w1=document.querySelector(".ag-wrap"); if(!w1) return; if(AG.sl!=null){ w1.scrollLeft=AG.sl; return; } const el=w1.querySelector(".ag-today")||w1.querySelector("th:last-child"); if(el){ const wr=w1.getBoundingClientRect(), er=el.getBoundingClientRect(); w1.scrollLeft+= (er.left+er.width/2)-(wr.left+wr.width/2); } },0);
+  const cnt=w=>{ const c={P:0,A:0,L:0}; ds.forEach(d=>{ const s=(attRec(d)[w.id]||{}).s; if(c[s]!=null) c[s]++; }); return c; };
+  return `
+  <section class="panel">
+    <div class="row"><h2>جدول الحضور الشهري</h2><div class="toolbar"><input type="month" id="ag-month" value="${m}" aria-label="الشهر"></div></div>
+    <p class="note">اضغط على أي خانة لتغييرها: <b>ح</b> حاضر ← <b>غ</b> غائب ← <b>إ</b> إجازة ← فارغ. يُحفظ تلقائياً. ولتسجيل أيام كثيرة مرة واحدة استخدم «تعبئة سريعة» ثم صحّح الغياب فقط.</p>
+    <form class="entry ag-fill" id="f-agfill">
+      <label>من<input type="date" id="ag-from" value="${startDef}" required></label>
+      <label>إلى<input type="date" id="ag-to" value="${(()=>{let x=t<=ds[nd-1]?addDays(t,-1):ds[nd-1]; return x<startDef?startDef:x;})()}" required></label>
+      <label>الحالة<select id="ag-s"><option value="P">الكل حاضر 07:00–18:00</option><option value="A">الكل غائب</option></select></label>
+      <label class="ag-chk"><input type="checkbox" id="ag-fri" checked> بدون الجمعة</label>
+      <label class="ag-chk"><input type="checkbox" id="ag-keep" checked> لا تغيّر الأيام المسجلة</label>
+      <button class="btn" type="submit">تعبئة سريعة</button>
+    </form>
+    <p class="vc-st" id="ag-st" aria-live="polite"></p>
+    ${aw.length?`<div class="tbl ag-wrap"><table class="ag"><thead><tr><th class="ag-name">العامل</th>${ds.map(d=>`<th class="${wd(d)===5?"ag-fri":""} ${d===t?"ag-today":""}"><span>${dn[wd(d)]}</span>${Number(d.slice(8))}</th>`).join("")}<th>ح</th><th>غ</th><th>إ</th></tr></thead><tbody>${aw.map(w=>{const c=cnt(w);return `<tr><td class="ag-name">${esc(w.name)}</td>${ds.map(d=>{const s=(attRec(d)[w.id]||{}).s||"";return `<td class="${wd(d)===5?"ag-fri":""}"><button type="button" class="ag-c ag-${s||"n"}" data-ag="${d}|${esc(w.id)}" ${d>t?"disabled":""} aria-label="${esc(w.name)} ${d}">${AG_LBL[s]}</button></td>`}).join("")}<td class="num">${c.P}</td><td class="num">${c.A}</td><td class="num">${c.L}</td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">أضف العمال أولاً.</div>`}
+  </section>`;
+}
+document.addEventListener("click",ev=>{ const t=ev.target.closest("button[data-ag]"); if(!t) return; ev.stopImmediatePropagation();
+  const [d,wid]=t.dataset.ag.split("|"); const cur=(attRec(d)[wid]||{}).s||""; const nx=AG_CYCLE[(AG_CYCLE.indexOf(cur)+1)%AG_CYCLE.length];
+  agSet(d,wid,nx); t.className="ag-c ag-"+(nx||"n"); t.textContent=AG_LBL[nx]; },true);
+document.addEventListener("change",ev=>{ if(ev.target.id==="ag-month"){ ev.stopImmediatePropagation(); agMonth=ev.target.value||month(today()); render(); } },true);
+document.addEventListener("submit",ev=>{ if(ev.target.id!=="f-agfill") return; ev.preventDefault(); ev.stopImmediatePropagation();
+  const from=v("ag-from"), to=v("ag-to"), s=v("ag-s"), fri=document.getElementById("ag-fri").checked, keep=document.getElementById("ag-keep").checked;
+  if(!from||!to||from>to){ toast("تحقق من التواريخ"); return; } if(to>today()){ toast("لا يمكن التسجيل لأيام قادمة"); return; }
+  let n=0; for(let d=from; d<=to; d=addDays(d,1)){ if(fri&&new Date(d+"T12:00:00").getDay()===5) continue; const rec={...attRec(d)}; let ch=false;
+    activeWorkers().forEach(w=>{ if(keep&&rec[w.id]&&rec[w.id].s) return; rec[w.id]=s==="P"?{...(rec[w.id]||{}),s:"P",in:"07:00",out:"18:00"}:{...(rec[w.id]||{}),s}; ch=true; });
+    if(ch){ agLocal(d,rec); AG.pend.add(d); n++; } }
+  if(!n){ toast("لا يوجد ما يُعبّأ"); return; }
+  if(isMgr()&&(!st().projectStart||from<st().projectStart)) saveSettings({projectStart:from});
+  agMonth=month(from); render(); agFlush(); toast(`تمت تعبئة ${n} يوم`); },true);
 
 /* ---------- الإنتاج ---------- */
 function vSite(){
