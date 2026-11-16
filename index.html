@@ -480,17 +480,11 @@ function agOps(date){
   return ops;
 }
 async function agFlush(){
-  clearTimeout(AG.t); AG.t=null; if(AG.busy){ AG.t=setTimeout(agFlush,800); return; }
-  const dates=[...AG.pend]; if(!dates.length) return; AG.pend.clear(); AG.busy=true; agStatus("جارٍ الحفظ…");
-  try{
-    if(typeof gsCall==="function"){ const ops=dates.flatMap(agOps); const res=await gsCall("apiBatch",ops);
-      if(AG.pend.size){ const keep=[...AG.pend].map(d=>[d,attRec(d)]); gsApply(res); keep.forEach(([d,r])=>agLocal(d,r)); } else gsApply(res); }
-    else { for(const d of dates){ for(const o of agOps(d)) await setDoc(o.c+"/"+o.id,o.data); } }
-    agStatus(AG.pend.size?"جارٍ الحفظ…":"تم الحفظ ✓");
-  }catch(e){ dates.forEach(d=>AG.pend.add(d)); agStatus("تعذّر الحفظ، سيُعاد المحاولة…"); AG.t=setTimeout(agFlush,4000); }
-  finally{ AG.busy=false; if(AG.pend.size&&!AG.t) AG.t=setTimeout(agFlush,800); }
+  clearTimeout(AG.t); AG.t=null; const dates=[...AG.pend]; AG.pend.clear(); if(!dates.length) return;
+  if(typeof qPush==="function"){ qPush("apiBatch",[dates.flatMap(agOps)]); agStatus("تم ✓"); return; }
+  try{ for(const d of dates){ for(const o of agOps(d)) await setDoc(o.c+"/"+o.id,o.data); } agStatus("تم الحفظ ✓"); }catch(e){ agStatus("تعذّر الحفظ"); }
 }
-function agQueue(date){ AG.pend.add(date); clearTimeout(AG.t); AG.t=setTimeout(agFlush,1200); agStatus("تغييرات بانتظار الحفظ…"); }
+function agQueue(date){ AG.pend.add(date); clearTimeout(AG.t); AG.t=setTimeout(agFlush,700); }
 function agStatus(t){ const el=document.getElementById("ag-st"); if(el) el.textContent=tr(t); }
 function agSet(date,wid,s){
   const rec={...attRec(date)}; const r={...(rec[wid]||{})};
@@ -1239,12 +1233,28 @@ const API_URL="https://script.google.com/macros/s/AKfycbzbRGyhPNzbSuKEH6FlPydVhs
 function gsCall(fn,...a){ return fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({fn,args:[PIN,...a]})}).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }).then(j=>{ if(j.error) throw {code:"error",message:j.error}; return j.result; }, e=>{ throw (e&&e.code)?e:{code:"net",message:"تعذّر الاتصال، تحقق من الإنترنت"}; }); }
 function gsApply(d){ GS.data=d||{}; if(d&&d.me){ me=d.me.name; document.body.classList.toggle("role-site",d.me.role!=="manager"); window.ME=d.me; } GS.subs.forEach(f=>f()); }
 async function gsRun(fn,...a){ try{ gsApply(await gsCall(fn,...a)); }catch(e){ toast(e.message||"تعذّر الاتصال"); throw e; } }
+/* optimistic writes: apply locally at once, sync to the server in order in the background */
+const Q={list:[],busy:false};
+const newId=()=>{ const a=new Uint8Array(8); crypto.getRandomValues(a); return [...a].map(x=>x.toString(16).padStart(2,"0")).join(""); };
+function gsLocal(c,id,fn){ const arr=GS.data[c]=GS.data[c]||[]; const i=arr.findIndex(r=>r.id===id); const nx=fn(i>=0?arr[i]:null); if(nx===null){ if(i>=0) arr.splice(i,1); } else if(i>=0) arr[i]=nx; else arr.push(nx); GS.subs.forEach(f=>f()); }
+function qPush(fn,args){ Q.list.push({fn,args}); setConn("جارٍ الحفظ…"); qRun(); return Promise.resolve(); }
+async function qRun(){
+  if(Q.busy) return; Q.busy=true;
+  while(Q.list.length){ const job=Q.list[0]; let res=null;
+    try{ res=await gsCall(job.fn,...job.args); Q.list.shift(); if(!Q.list.length){ const keep=(typeof AG!=="undefined"&&AG.pend.size)?[...AG.pend].map(d=>[d,attRec(d)]):[]; gsApply(res); keep.forEach(([d,r])=>agLocal(d,r)); } }
+    catch(e){ if(e&&e.code==="net"){ setConn("لا يوجد اتصال – سيُحفظ عند عودة الإنترنت"); await new Promise(r=>setTimeout(r,5000)); continue; }
+      Q.list.shift(); toast((e&&e.message)||"تعذّر الحفظ"); try{ gsApply(await gsCall("apiGetAll")); }catch(_){} } }
+  Q.busy=false; setConn((window.ME?window.ME.name+" · ":"")+"متصل · يحفظ تلقائياً لكل الفريق");
+}
+window.addEventListener("beforeunload",e=>{ if(Q.list.length){ e.preventDefault(); e.returnValue=""; } });
 const shimDb={
   collection:c=>({ onSnapshot(fn){ const run=()=>fn({docs:(GS.data[c]||[]).map(x=>({id:x.id,data:()=>{ const o={...x}; delete o.id; return o; }}))}); GS.subs.push(run); return ()=>{}; },
-                   add:d=>gsRun("apiAdd",c,d) }),
+                   add:d=>{ const id=newId(); gsLocal(c,id,()=>({...d,id})); return qPush("apiAdd",[c,d,id]); } }),
   doc:p=>{ const [c,id]=p.split("/"); return {
     onSnapshot(fn){ const run=()=>{ const x=(GS.data[c]||[]).find(r=>r.id===id); fn({exists:!!x,data:()=>{ const o={...x}; delete o.id; return o; }}); }; GS.subs.push(run); return ()=>{}; },
-    set:d=>gsRun("apiSet",c,id,d), update:d=>gsRun("apiUpdate",c,id,d), delete:()=>gsRun("apiDelete",c,id) }; }
+    set:d=>{ gsLocal(c,id,()=>({...d,id})); return qPush("apiSet",[c,id,d]); },
+    update:d=>{ gsLocal(c,id,cur=>({...(cur||{}),...d,id})); return qPush("apiUpdate",[c,id,d]); },
+    delete:()=>{ gsLocal(c,id,()=>null); return qPush("apiDelete",[c,id]); } }; }
 };
 function subscribeAll(){
   const sortDesc=(a,b)=>((b.date||"")+(b.createdAt||"")).localeCompare((a.date||"")+(a.createdAt||""));
@@ -1268,8 +1278,8 @@ db=shimDb; user=null; downloads=null; sampler=null;
 subscribeAll();
 let savedPin=null; try{ savedPin=localStorage.getItem("ms-pin"); }catch(e){}
 if(savedPin) login(savedPin); else $("#login").hidden=false;
-setInterval(()=>{ if(PIN&&!document.hidden&&!document.activeElement?.matches?.("input,select,textarea")) gsCall("apiGetAll").then(gsApply).catch(()=>{}); },60000);
-document.addEventListener("visibilitychange",()=>{ if(PIN&&!document.hidden) gsCall("apiGetAll").then(gsApply).catch(()=>{}); });
+setInterval(()=>{ if(PIN&&!Q.list.length&&!document.hidden&&!document.activeElement?.matches?.("input,select,textarea")) gsCall("apiGetAll").then(gsApply).catch(()=>{}); },60000);
+document.addEventListener("visibilitychange",()=>{ if(PIN&&!Q.list.length&&!document.hidden) gsCall("apiGetAll").then(gsApply).catch(()=>{}); });
 </script>
 
 <script>(function(){ let ev=null; const b=document.getElementById("pwa-install"); const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone; window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); ev=e; if(!standalone) b.hidden=false; }); window.addEventListener("appinstalled",()=>{ b.hidden=true; toast("تم تثبيت التطبيق ✓"); }); b.addEventListener("click",async()=>{ if(!ev){ toast("من قائمة المتصفح ⋮ اختر: تثبيت التطبيق"); return; } ev.prompt(); try{ await ev.userChoice; }catch(e){} ev=null; b.hidden=true; }); })();</script>
