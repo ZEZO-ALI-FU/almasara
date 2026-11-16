@@ -143,7 +143,7 @@ body.role-site .mgr{display:none!important}
   <div class="wrap">
     <div class="hrow">
       <div><h1>مصطفى المسارة – يتي بلازا</h1><div class="sub">أسقف جبسية ودهان · عقد BFT/SUBC/33761/26 · 6,500 م²</div></div>
-      <div class="toolbar"><span class="status" id="conn">جارٍ الاتصال…</span><button class="btn ghost sm" id="lang" type="button" lang="en">English</button><button class="btn ghost sm" id="logout" type="button">خروج</button></div>
+      <div class="toolbar"><span class="status" id="conn">جارٍ الاتصال…</span><button class="btn ghost sm" id="lang" type="button" lang="en">English</button><button class="btn sm" id="pwa-install" type="button" hidden>تثبيت التطبيق</button><button class="btn ghost sm" id="logout" type="button">خروج</button></div>
     </div>
     <nav role="tablist" id="tabs">
       <button class="mgr" role="tab" data-t="dash">الرئيسية</button>
@@ -566,6 +566,7 @@ async function vcProcess(blob,src){
     catch(e){ if(/أطول/.test(e.message||"")) throw e; b64=await vcB64(blob); mime=vcMime(blob); }
     vcSet("جارٍ الاستماع والتحليل… (10–30 ثانية)");
     const r=await gsCall("apiVoice",b64,mime,date);
+    if(!String(r.transcript||"").trim()&&!(r.entries||[]).length&&!(r.issues||[]).length){ vcSet("لم يُسمع كلام واضح في التسجيل. أعد التسجيل بصوت أوضح وبعيداً عن الضوضاء."); return; }
     const wById=Object.fromEntries(workers().map(w=>[w.id,w]));
     const actOk=k=>acts().some(a=>a.key===k)?k:"";
     const D={date,src:src||"",transcript:r.transcript||"",summary:r.summary||"",
@@ -1184,6 +1185,7 @@ setInterval(()=>{ if(PIN&&!document.hidden&&!document.activeElement?.matches?.("
 document.addEventListener("visibilitychange",()=>{ if(PIN&&!document.hidden) gsCall("apiGetAll").then(gsApply).catch(()=>{}); });
 </script>
 
+<script>(function(){ let ev=null; const b=document.getElementById("pwa-install"); const standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone; window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); ev=e; if(!standalone) b.hidden=false; }); window.addEventListener("appinstalled",()=>{ b.hidden=true; toast("تم تثبيت التطبيق ✓"); }); b.addEventListener("click",async()=>{ if(!ev){ toast("من قائمة المتصفح ⋮ اختر: تثبيت التطبيق"); return; } ev.prompt(); try{ await ev.userChoice; }catch(e){} ev=null; b.hidden=true; }); })();</script>
 <script>(function(){ if(!/[?&]share=1/.test(location.search)||!("caches" in window)) return; history.replaceState(null,"",location.pathname); const go=async()=>{ if(!PIN||!window.ME){ setTimeout(go,700); return; } try{ const c=await caches.open("shared"); const ks=await c.keys(); const fs=[]; for(const k of ks){ const r=await c.match(k); const b=await r.blob(); fs.push(new File([b],decodeURIComponent(r.headers.get("X-Name")||"voice"),{type:b.type})); await c.delete(k); } if(fs.length){ tab="site"; render(); window.scrollTo(0,0); vcFiles(fs); } }catch(e){ toast("تعذّر فتح الملف المشارك"); } }; go(); })();</script>
 <script>if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 </body>
