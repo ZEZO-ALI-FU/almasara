@@ -115,6 +115,14 @@ table.ag .ag-name{position:sticky;inset-inline-start:0;background:var(--card,var
 .ag-today{outline:2px solid var(--acc,#1F5FA8)}
 .ag-chk{display:flex;align-items:center;gap:6px}
 .ag-chk input{width:18px;height:18px}
+.cmp-chart{overflow-x:auto;margin:10px 0 4px}
+.cmp-chart svg{display:block;max-width:none}
+.cmp-chart .c-prod,.cmp-leg i.c-prod{fill:#1E8E5A;background:#1E8E5A}
+.cmp-chart .c-cost,.cmp-leg i.c-cost{fill:#C0392B;background:#C0392B}
+.cmp-chart .c-ax{font-size:10px;fill:var(--muted,#888)}
+.cmp-chart .c-base{stroke:var(--line,#ccc)}
+.cmp-leg{display:flex;gap:16px;font-size:.85rem;margin-bottom:8px}
+.cmp-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-inline-end:6px}
 .vc-btns{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
 .vc-mic{font-size:1.05rem;padding:14px 22px;border-radius:999px}
 .vc-mic.on{background:#C0392B;border-color:#C0392B;animation:vcp 1.2s infinite}
@@ -276,8 +284,8 @@ function salariesPaidTotal(){ return sum(Object.values(S.payroll).filter(p=>p.pa
 function subPaidTotal(){ return sum(S.subPay,p=>p.amount); }
 function subWorkTotal(){ return sum(S.subWork,w=>(Number(w.qty)||0)*(Number(w.rate)||0)); }
 function expensesTotal(list=S.expenses){ return sum(list,e=>e.amount); }
-function spentTotal(){ return expensesTotal()+salariesPaidTotal()+subPaidTotal(); }
-function monthlyBudget(){ return sum(activeWorkers(),w=>w.salary+w.extra) + sum(st().budget||[],b=>b.monthly); }
+function spentTotal(){ return expensesTotal()+salariesPaidTotal()+subPaidTotal()+foodTotal(); }
+function monthlyBudget(){ return sum(activeWorkers(),w=>w.salary+w.extra) + sum(st().budget||[],b=>b.monthly) + (food().on?activeWorkers().length*(Number(food().rate)||0)*30:0); }
 function received(){ return sum(S.invoices,i=>i.paidAmount); }
 function invoicedNet(){ return sum(S.invoices,i=>i.amount); }
 function forecast(){
@@ -340,11 +348,93 @@ function chart14(){
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="قيمة الإنتاج اليومي آخر 14 يوماً"><line x1="${pl}" x2="${W-pr}" y1="${H-pb}" y2="${H-pb}" stroke="var(--line)"/>${bars}</svg></div>`;
 }
 
+
+/* ---------- وجبات العمال (خصم بهوان) ---------- */
+const FOOD_DEF={on:true,rate:1,start:"2026-11-14",basis:"all"};
+const food=()=>({...FOOD_DEF,...(st().food||{})});
+function foodCount(d){ const f=food(); if(!f.on||!f.rate||d<f.start||d>today()) return 0;
+  const ws=workers().filter(w=>(!w.start||w.start<=d));
+  if(f.basis==="present"){ const r=attRec(d); return ws.filter(w=>(r[w.id]||{}).s==="P").length; }
+  return ws.filter(w=>w.active!==false||(w.end&&w.end>=d)).length; }
+const foodOn=d=>foodCount(d)*(Number(food().rate)||0);
+function foodRange(a,b){ let s=0; const f=food(); let d=a<f.start?f.start:a; const end=b>today()?today():b; while(d<=end){ s+=foodOn(d); d=addDays(d,1); } return s; }
+const foodMonth=m=>foodRange(m+"-01",`${m}-${String(daysIn(m)).padStart(2,"0")}`);
+const foodTotal=()=>foodRange(food().start,today());
+
+/* ---------- تكلفة اليوم مقابل إنتاج اليوم ---------- */
+function laborOn(d){ const r=attRec(d); let s=0, n=0;
+  activeWorkers().forEach(w=>{ const x=r[w.id]; const dw=dayWage(w); const ex=(w.extra||0)/(Number(st().payDays)||30);
+    if(!x||!x.s) return; s+=ex;
+    if(x.s==="P"){ n++; const c=prodCut(w,x); s+=dw-(c?c.ded:0); }
+    else if(!st().deductAbsence) s+=dw; });
+  return {cost:s,n}; }
+function expOn(d){ const m=month(d);
+  const direct=sum(S.expenses.filter(e=>e.date===d&&e.freq!=="monthly"),e=>e.amount);
+  const monthly=sum(S.expenses.filter(e=>month(e.date)===m&&e.freq==="monthly"),e=>e.amount)/daysIn(m);
+  return direct+monthly; }
+const subOn=d=>sum(S.subWork.filter(w=>w.date===d),w=>(Number(w.qty)||0)*(Number(w.rate)||0));
+function dayCmp(d){ const L=laborOn(d), F=foodOn(d), E=expOn(d), U=subOn(d), P=prodOn(d); const cost=L.cost+F+E+U; return {d,prod:P,lab:L.cost,n:L.n,food:F,exp:E,sub:U,cost,net:P-cost}; }
+let cmpMonth=month(today());
+function projStart(){ return st().projectStart||[...Object.keys(S.attendance),...S.progress.map(p=>p.date)].filter(Boolean).sort()[0]||today(); }
+function cmpRows(m){ const nd=daysIn(m), t=today(), ps=projStart(); const out=[]; for(let i=1;i<=nd;i++){ const d=`${m}-${String(i).padStart(2,"0")}`; if(d>t) break; if(d<ps) continue; const r=dayCmp(d); if(r.prod||r.cost) out.push(r); } return out; }
+function cmpChart(rows){
+  if(!rows.length) return "";
+  const W=Math.max(320,rows.length*34), H=170, pad=22, mx=Math.max(1,...rows.map(r=>Math.max(r.prod,r.cost)));
+  const bw=11, step=(W-pad*2)/rows.length, y=v=>H-pad-(v/mx)*(H-pad*2);
+  const bars=rows.map((r,i)=>{ const x=pad+i*step+step/2; return `<g><title>${r.d}: إنتاج ${omr(r.prod)} · تكلفة ${omr(r.cost)}</title><rect x="${x-bw-1}" y="${y(r.prod)}" width="${bw}" height="${H-pad-y(r.prod)}" rx="2" class="c-prod"/><rect x="${x+1}" y="${y(r.cost)}" width="${bw}" height="${H-pad-y(r.cost)}" rx="2" class="c-cost"/><text x="${x}" y="${H-6}" text-anchor="middle" class="c-ax">${Number(r.d.slice(8))}</text></g>`; }).join("");
+  return `<div class="cmp-chart"><svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="الإنتاج والتكلفة يومياً"><line x1="${pad}" x2="${W-pad}" y1="${H-pad}" y2="${H-pad}" class="c-base"/>${bars}</svg></div><div class="cmp-leg"><span><i class="c-prod"></i>الإنتاج (ر.ع)</span><span><i class="c-cost"></i>التكلفة (ر.ع)</span></div>`;
+}
+function vCmp(){
+  const m=cmpMonth, rows=cmpRows(m); const t=today(), td=dayCmp(t), yd=dayCmp(addDays(t,-1));
+  const tot={prod:sum(rows,r=>r.prod),cost:sum(rows,r=>r.cost),lab:sum(rows,r=>r.lab),food:sum(rows,r=>r.food),exp:sum(rows,r=>r.exp),sub:sum(rows,r=>r.sub)};
+  const win=rows.filter(r=>r.net>=0).length;
+  const ms=[...new Set([month(t),...Object.keys(S.attendance).map(month),...S.progress.map(p=>month(p.date)),...S.expenses.map(e=>month(e.date))])].filter(Boolean).sort().reverse();
+  const nb=(v)=>`<span class="${v>=0?"pos":"neg"}">${v>=0?"+":"−"}${omr(Math.abs(v))}</span>`;
+  return `
+  <section class="panel">
+    <div class="row"><h2>المنصرفات مقابل الإنتاج – يوم بيوم</h2><div class="toolbar"><select id="cmp-month" aria-label="الشهر">${ms.map(x=>`<option ${x===m?"selected":""}>${x}</option>`).join("")}</select>${printBtn("cmp","طباعة المقارنة")}</div></div>
+    <div class="kpis">
+      <div class="kpi"><span class="l">اليوم</span><span class="v">${nb(td.net)}</span><span class="n">إنتاج ${omr(td.prod)} · تكلفة ${omr(td.cost)}</span></div>
+      <div class="kpi"><span class="l">أمس</span><span class="v">${nb(yd.net)}</span><span class="n">إنتاج ${omr(yd.prod)} · تكلفة ${omr(yd.cost)}</span></div>
+      <div class="kpi"><span class="l">الشهر: الإنتاج − التكلفة</span><span class="v">${nb(tot.prod-tot.cost)}</span><span class="n">${rows.length?`${win} من ${rows.length} يوم بربح`:"لا بيانات"}</span></div>
+      <div class="kpi"><span class="l">متوسط اليوم</span><span class="v">${nb(rows.length?(tot.prod-tot.cost)/rows.length:0)}</span><span class="n">إنتاج ${omr(rows.length?tot.prod/rows.length:0)} · تكلفة ${omr(rows.length?tot.cost/rows.length:0)}</span></div>
+    </div>
+    ${cmpChart(rows)}
+    ${rows.length?`<div class="tbl"><table><thead><tr><th>التاريخ</th><th class="num">الإنتاج</th><th class="num">العمالة</th><th class="num">الوجبات</th><th class="num">مصروفات</th><th class="num">مقاولو باطن</th><th class="num">إجمالي التكلفة</th><th class="num">الفرق</th></tr></thead><tbody>${rows.slice().reverse().map(r=>`<tr><td style="white-space:nowrap">${Number(r.d.slice(8))}/${Number(r.d.slice(5,7))}${r.d===t?` <span class="pill acc">اليوم</span>`:""}</td><td class="num">${omr(r.prod)}</td><td class="num">${omr(r.lab)} <span class="ref">${r.n} عامل</span></td><td class="num">${omr(r.food)}</td><td class="num">${omr(r.exp)}</td><td class="num">${omr(r.sub)}</td><td class="num"><b>${omr(r.cost)}</b></td><td class="num">${nb(r.net)}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="num">${omr(tot.prod)}</td><td class="num">${omr(tot.lab)}</td><td class="num">${omr(tot.food)}</td><td class="num">${omr(tot.exp)}</td><td class="num">${omr(tot.sub)}</td><td class="num">${omr(tot.cost)}</td><td class="num">${nb(tot.prod-tot.cost)}</td></tr></tfoot></table></div>`:`<div class="empty">لا يوجد إنتاج أو تكلفة مسجلة في هذا الشهر.</div>`}
+    <p class="note">الإنتاج = قيمة الأمتار المنجزة في اليوم بأسعار العقد. التكلفة = يومية العمال حسب الحضور (بعد خصم الإنتاجية) + وجبات بهوان + مصروفات اليوم + نصيب اليوم من المصروفات الشهرية + أعمال مقاولي الباطن. الأعمال السابقة لا تدخل هنا.</p>
+  </section>`;
+}
+function vFood(){
+  const f=food(), m=finMonth||month(today()), nd=daysIn(m), t=today();
+  const rows=[]; for(let i=1;i<=nd;i++){ const d=`${m}-${String(i).padStart(2,"0")}`; if(d>t) break; const n=foodCount(d); if(n) rows.push({d,n,a:n*(Number(f.rate)||0)}); }
+  return `
+  <section class="panel">
+    <div class="row"><h2>وجبات العمال – خصم بهوان</h2>${printBtn("food","طباعة كشف الوجبات")}</div>
+    <div class="kpis">
+      <div class="kpi"><span class="l">خصم اليوم</span><span class="v">${omr(foodOn(t))}</span><span class="n">${foodCount(t)} عامل × 3 وجبات</span></div>
+      <div class="kpi"><span class="l">خصم شهر ${m}</span><span class="v">${omr(foodMonth(m))}</span></div>
+      <div class="kpi"><span class="l">الإجمالي منذ ${esc(f.start)}</span><span class="v neg">${omr(foodTotal())}</span><span class="n">يُخصم من مستحقاتكم لدى بهوان</span></div>
+    </div>
+    ${isMgr()?`<form class="entry" id="f-food">
+      <label>بداية الخصم<input type="date" id="fd-start" value="${esc(f.start)}"></label>
+      <label>ر.ع لكل عامل يومياً (3 وجبات)<input type="number" id="fd-rate" step="0.001" min="0" value="${f.rate}"></label>
+      <label>يُحسب على<select id="fd-basis"><option value="all" ${f.basis==="all"?"selected":""}>كل العمال على رأس العمل يومياً</option><option value="present" ${f.basis==="present"?"selected":""}>العمال الحاضرين فقط</option></select></label>
+      <label class="ag-chk"><input type="checkbox" id="fd-on" ${f.on?"checked":""}> مفعّل</label>
+      <button class="btn" type="submit">حفظ</button>
+    </form>`:""}
+    ${rows.length?`<details><summary>التفاصيل اليومية لشهر ${m} (${rows.length} يوم)</summary><div class="tbl"><table><thead><tr><th>التاريخ</th><th class="num">عدد العمال</th><th class="num">الوجبات</th><th class="num">الخصم ر.ع</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.d}</td><td class="num">${r.n}</td><td class="num">${r.n*3}</td><td class="num">${omr(r.a)}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="num"></td><td class="num">${sum(rows,r=>r.n*3)}</td><td class="num">${omr(sum(rows,r=>r.a))}</td></tr></tfoot></table></div></details>`:""}
+    <p class="note">يُحسب تلقائياً كل يوم من عدد العمال، ويدخل في إجمالي المنصرفات وفي مقارنة الإنتاج اليومية. لا تسجّله يدوياً في المصروفات حتى لا يتكرر.</p>
+  </section>`;
+}
+document.addEventListener("change",ev=>{ if(ev.target.id==="cmp-month"){ ev.stopImmediatePropagation(); cmpMonth=ev.target.value; render(); } },true);
+document.addEventListener("submit",async ev=>{ if(ev.target.id!=="f-food") return; ev.preventDefault(); ev.stopImmediatePropagation();
+  await saveSettings({food:{on:document.getElementById("fd-on").checked,rate:Number(v("fd-rate"))||0,start:v("fd-start")||FOOD_DEF.start,basis:v("fd-basis")}}); toast("تم الحفظ"); render(); },true);
+
 function vDash(){
   const t=today(), y=addDays(t,-1), ws=weekStart(t), m=month(t);
   const pT=prodOn(t), pY=prodOn(y), pW=prodRange(ws,t), pWp=prodRange(addDays(ws,-7),addDays(t,-7)), pM=prodRange(m+"-01",t);
   const pr=activeWorkers().map(w=>payRow(m,w)); const paid=sum(pr.filter(r=>r.paid),r=>r.paidAmount||r.net), unpaid=sum(pr.filter(r=>!r.paid),r=>r.net), ded=sum(pr,r=>r.tded);
-  const f=forecast(); const spent=spentTotal(); const spentM=expensesTotal(S.expenses.filter(e=>month(e.date)===m));
+  const f=forecast(); const spent=spentTotal(); const spentM=expensesTotal(S.expenses.filter(e=>month(e.date)===m))+foodMonth(m);
   const rec=attRec(t); const pres=activeWorkers().filter(w=>(rec[w.id]||{}).s==="P").length;
   const ev=earned(); const d=doneBy();
   return `
@@ -358,6 +448,7 @@ function vDash(){
     <div class="kpi"><span class="l">أيام العمل المتبقية</span><span class="v">${f.days??"—"}</span><span class="n">${f.finish?`الانتهاء المتوقع ${f.finish}`:"تحتاج إنتاجاً مسجلاً"}</span></div>
     <div class="kpi"><span class="l">الحضور اليوم</span><span class="v">${pres} / ${activeWorkers().length}</span><span class="n">متوسط الإنتاج ${omr(f.avg)} ر.ع/يوم</span></div>
   </section>
+  ${vCmp()}
   <div class="grid2">
     <section class="panel"><div class="row"><h3>قيمة الإنتاج اليومي – آخر 14 يوماً (ر.ع)</h3></div>${chart14()}</section>
     <section class="panel"><div class="row"><h3>رأي المستشار المالي</h3><button class="btn ghost sm" data-go="adv">التفاصيل</button></div>${insHtml(insights().slice(0,4))}</section>
@@ -374,7 +465,8 @@ function vFin(){
   const b=st().budget||[]; const sp=finMonth?sum(Object.values(S.payroll).filter(p=>p.paid&&p.month===finMonth),p=>p.paidAmount):salariesPaidTotal();
   const subp=sum(S.subPay.filter(p=>!finMonth||month(p.date)===finMonth),p=>p.amount);
   const cats={}; list.forEach(e=>cats[e.cat||"أخرى"]=(cats[e.cat||"أخرى"]||0)+(Number(e.amount)||0));
-  const totalAll=expensesTotal(list)+sp+subp;
+  const fd=finMonth?foodMonth(finMonth):foodTotal(); if(fd) cats["وجبات العمال (خصم بهوان)"]=fd;
+  const totalAll=expensesTotal(list)+sp+subp+fd;
   const exp=monthlyBudget()*(finMonth?1:Math.max(1,months.length));
   return `
   <section class="panel">
@@ -399,11 +491,13 @@ function vFin(){
       <div class="kpi"><span class="l">مصروفات تشغيل</span><span class="v">${omr(expensesTotal(list))}</span></div>
       <div class="kpi"><span class="l">رواتب مدفوعة</span><span class="v">${omr(sp)}</span></div>
       <div class="kpi"><span class="l">دفعات مقاولي الباطن</span><span class="v">${omr(subp)}</span></div>
+      <div class="kpi"><span class="l">وجبات العمال (بهوان)</span><span class="v">${omr(fd)}</span></div>
       <div class="kpi"><span class="l">المتوقع (الميزانية)</span><span class="v">${omr(exp)}</span><span class="n ${exp-totalAll>=0?"pos":"neg"}">${exp-totalAll>=0?"ضمن الميزانية":"تجاوز"} ${omr(Math.abs(exp-totalAll))}</span></div>
     </div>
     ${Object.keys(cats).length?`<div class="bars">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="bar"><span>${esc(k)}</span><div class="track"><div class="fill" style="width:${v/Math.max(...Object.values(cats))*100}%"></div></div><span class="p">${omr(v)}</span></div>`).join("")}</div>`:""}
     ${list.length?`<div class="tbl"><table><thead><tr><th>التاريخ</th><th>البند</th><th>الوصف</th><th>دُفع إلى</th><th>النوع</th><th class="num">ر.ع</th><th>سجّله</th><th></th></tr></thead><tbody>${list.map(e=>`<tr><td>${esc(e.date)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc)}${e.rcpt?` <span class="ref">#${esc(e.rcpt)}</span>`:""}</td><td>${esc(e.to)}</td><td><span class="pill">${{daily:"يومي",monthly:"شهري",once:"مرة"}[e.freq]||""}</span></td><td class="num">${omr(e.amount)}</td><td>${by(e.by)}</td><td>${delBtn("expenses",e.id)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">لا توجد مصروفات في هذه الفترة. سجّل أول مصروف من النموذج أعلاه.</div>`}
   </section>
+  ${vFood()}
   <section class="panel">
     <h2>الميزانية الشهرية المتوقعة</h2>
     <div class="budget-row"><strong>رواتب وتكاليف العمال (${activeWorkers().length})</strong><span class="num">${omr(sum(activeWorkers(),w=>w.salary+w.extra))}</span><span></span></div>
@@ -1039,9 +1133,10 @@ function buildPrint(kind, arg){
     const list=S.expenses.filter(e=>!finMonth||month(e.date)===finMonth).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""));
     const cats={}; list.forEach(e=>cats[e.cat]=(cats[e.cat]||0)+(+e.amount||0));
     const pays=Object.values(S.payroll).filter(p=>p.paid&&(!finMonth||p.month===finMonth)); const subs=S.subPay.filter(p=>!finMonth||month(p.date)===finMonth);
-    const tot=expensesTotal(list)+sum(pays,p=>p.paidAmount)+sum(subs,p=>p.amount);
+    const fdp=finMonth?foodMonth(finMonth):foodTotal();
+    const tot=expensesTotal(list)+sum(pays,p=>p.paidAmount)+sum(subs,p=>p.amount)+fdp;
     return ["كشف المنصرفات", `${rptHead("كشف المنصرفات", finMonth?`شهر ${finMonth}`:"كل الفترة")}
-      <table><thead><tr><th>البند</th><th class="n">ر.ع</th></tr></thead><tbody>${Object.entries(cats).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${omr(v)}</td></tr>`).join("")}<tr><td>رواتب مدفوعة</td><td class="n">${omr(sum(pays,p=>p.paidAmount))}</td></tr><tr><td>دفعات مقاولي الباطن</td><td class="n">${omr(sum(subs,p=>p.amount))}</td></tr></tbody><tfoot><tr><td>الإجمالي</td><td class="n">${omr(tot)}</td></tr></tfoot></table>
+      <table><thead><tr><th>البند</th><th class="n">ر.ع</th></tr></thead><tbody>${Object.entries(cats).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${omr(v)}</td></tr>`).join("")}<tr><td>رواتب مدفوعة</td><td class="n">${omr(sum(pays,p=>p.paidAmount))}</td></tr><tr><td>دفعات مقاولي الباطن</td><td class="n">${omr(sum(subs,p=>p.amount))}</td></tr><tr><td>وجبات العمال (خصم بهوان)</td><td class="n">${omr(fdp)}</td></tr></tbody><tfoot><tr><td>الإجمالي</td><td class="n">${omr(tot)}</td></tr></tfoot></table>
       <h2>التفاصيل</h2><table><thead><tr><th>#</th><th>التاريخ</th><th>البند</th><th>الوصف</th><th>دُفع إلى</th><th>إيصال</th><th class="n">ر.ع</th></tr></thead><tbody>${list.map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.date)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc)}</td><td>${esc(e.to)}</td><td>${esc(e.rcpt)}</td><td class="n">${omr(e.amount)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="6">مجموع مصروفات التشغيل</td><td class="n">${omr(expensesTotal(list))}</td></tr></tfoot></table>
       <div class="foot"><span>أعدّه: ............</span><span>اعتمده: ............</span></div>`];
   }
@@ -1052,6 +1147,15 @@ function buildPrint(kind, arg){
   if(kind==="attMonth"){
     const mm=month(attDate), nd=daysIn(mm); const ds=[...Array(nd)].map((_,i)=>`${mm}-${String(i+1).padStart(2,"0")}`);
     return ["جدول الحضور "+mm, `<style>@page{size:A4 landscape;margin:8mm}th,td{padding:2pt 3pt;font-size:8pt;text-align:center}</style>${rptHead("جدول الحضور الشهري","شهر "+mm+" · ح = حاضر، غ = غائب، ج = إجازة")}<table><thead><tr><th>العامل</th>${ds.map(d=>`<th>${Number(d.slice(8))}</th>`).join("")}<th>ح</th><th>غ</th><th>ج</th></tr></thead><tbody>${activeWorkers().map(w=>{const a=monthAtt(mm,w.id);return `<tr><td style="text-align:right;white-space:nowrap">${esc(w.name)}</td>${ds.map(d=>{const s=(attRec(d)[w.id]||{}).s;return `<td>${s==="P"?"ح":s==="A"?"غ":s==="L"?"ج":""}</td>`}).join("")}<td>${a.P}</td><td>${a.A}</td><td>${a.L}</td></tr>`}).join("")}</tbody></table>`];
+  }
+  if(kind==="cmp"){
+    const rows=cmpRows(cmpMonth); if(!rows.length) return null; const T=k=>sum(rows,r=>r[k]);
+    return ["المنصرفات مقابل الإنتاج "+cmpMonth, `<style>@page{size:A4 landscape;margin:9mm}th,td{padding:3pt 4pt;font-size:9pt}</style>${rptHead("المنصرفات مقابل الإنتاج – يوم بيوم","شهر "+cmpMonth)}<table><thead><tr><th>التاريخ</th><th class="n">الإنتاج</th><th class="n">العمالة</th><th class="n">عدد الحضور</th><th class="n">الوجبات</th><th class="n">مصروفات</th><th class="n">مقاولو باطن</th><th class="n">إجمالي التكلفة</th><th class="n">الفرق</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.d}</td><td class="n">${omr(r.prod)}</td><td class="n">${omr(r.lab)}</td><td class="n">${r.n}</td><td class="n">${omr(r.food)}</td><td class="n">${omr(r.exp)}</td><td class="n">${omr(r.sub)}</td><td class="n"><b>${omr(r.cost)}</b></td><td class="n" style="color:${r.net>=0?"#1E8E5A":"#C0392B"}">${omr(r.net)}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="n">${omr(T("prod"))}</td><td class="n">${omr(T("lab"))}</td><td></td><td class="n">${omr(T("food"))}</td><td class="n">${omr(T("exp"))}</td><td class="n">${omr(T("sub"))}</td><td class="n">${omr(T("cost"))}</td><td class="n">${omr(T("prod")-T("cost"))}</td></tr></tfoot></table><p class="muted">الإنتاج بأسعار العقد. التكلفة = يومية العمال حسب الحضور بعد خصم الإنتاجية + وجبات بهوان + المصروفات (الشهرية موزعة على أيام الشهر) + أعمال مقاولي الباطن.</p>`];
+  }
+  if(kind==="food"){
+    const f=food(), m=finMonth||month(today()), nd=daysIn(m), t=today(); const rows=[]; for(let i=1;i<=nd;i++){ const d=`${m}-${String(i).padStart(2,"0")}`; if(d>t) break; const n=foodCount(d); if(n) rows.push({d,n,a:n*(Number(f.rate)||0)}); }
+    if(!rows.length) return null;
+    return ["كشف وجبات العمال "+m, `${rptHead("كشف وجبات العمال – خصم بهوان","شهر "+m+" · "+omr(f.rate)+" ر.ع لكل عامل يومياً (3 وجبات)")}<table><thead><tr><th>#</th><th>التاريخ</th><th class="n">عدد العمال</th><th class="n">عدد الوجبات</th><th class="n">المبلغ ر.ع</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.d}</td><td class="n">${r.n}</td><td class="n">${r.n*3}</td><td class="n">${omr(r.a)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="2">الإجمالي</td><td class="n">${sum(rows,r=>r.n)} يوم-عامل</td><td class="n">${sum(rows,r=>r.n*3)}</td><td class="n">${omr(sum(rows,r=>r.a))}</td></tr></tfoot></table><div class="foot"><span>المشرف: ............</span><span>المدير: ............</span></div>`];
   }
   if(kind==="payroll"){
     const rows=activeWorkers().map(w=>({w,r:payRow(payMonth,w)}));
