@@ -118,6 +118,11 @@ table.ag .ag-name{position:sticky;inset-inline-start:0;background:var(--card,var
 .panel{min-width:0;max-width:100%}
 details{max-width:100%;min-width:0}
 details>.tbl{max-width:100%;overflow-x:auto}
+.au{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;border-inline-start-width:4px}
+.au summary{cursor:pointer;line-height:1.6}
+.au-high{border-inline-start-color:#C0392B}.au-med{border-inline-start-color:#D68910}.au-low{border-inline-start-color:#7F8C8D}.au-ok{border-inline-start-color:#1E8E5A}
+.au-f{margin:6px 0;padding-inline-start:18px;font-size:.9rem}
+.au-resp{margin-top:6px}
 .cmp-chart{overflow-x:auto;margin:10px 0 4px}
 .cmp-chart svg{display:block;max-width:none}
 .cmp-chart .c-prod,.cmp-leg i.c-prod{fill:#1E8E5A;background:#1E8E5A}
@@ -181,6 +186,7 @@ body.role-site .mgr{display:none!important}
       <button class="mgr" role="tab" data-t="bill">الفواتير</button>
       <button class="mgr" role="tab" data-t="subs">مقاولو الباطن</button>
       <button class="mgr" role="tab" data-t="adv">المستشار المالي</button>
+      <button class="mgr" role="tab" data-t="audit">المراجعة</button>
     </nav>
   </div>
   <div class="chalk"></div>
@@ -308,7 +314,7 @@ function unpaidSalaries(){ // previous months fully, current month accrued
 /* ================= render ================= */
 function render(){
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected", b.dataset.t===tab));
-  const views={prev:vPrev,dash:vDash,fin:vFin,hr:vHr,site:vSite,eq:vEq,bill:vBill,subs:vSubs,adv:vAdv};
+  const views={prev:vPrev,dash:vDash,fin:vFin,hr:vHr,site:vSite,eq:vEq,bill:vBill,subs:vSubs,adv:vAdv,audit:vAudit};
   $("#app").innerHTML = tr((views[tab]||vDash)());
   resolveNames();
 }
@@ -560,6 +566,201 @@ function buildSummary(){
   <div class="foot"><span>المحاسب: ............</span><span>المدير: ............</span></div>`];
 }
 document.addEventListener("change",ev=>{ const t=ev.target; if(t.id==="sm-date"){ ev.stopImmediatePropagation(); smDate=t.value||today(); render(); } else if(t.id==="sm-from"){ ev.stopImmediatePropagation(); smFrom=t.value; render(); } },true);
+
+
+/* ================= المراجع الداخلي (Internal Audit) ================= */
+const AU_SEV={high:{l:"عالية",w:3,c:"bad"},med:{l:"متوسطة",w:2,c:"warn"},low:{l:"منخفضة",w:1,c:""}};
+const AU_AREA={A:"العقد والفوترة",B:"العمالة والرواتب",C:"المنصرفات",D:"الإنتاج والجدول الزمني",E:"المعدات والأصول",F:"مقاولو الباطن",G:"البيانات والصلاحيات"};
+let auFilter="fail", AU_SEC=null;
+function workDays(from,to){ const out=[]; eachDay(from,to,d=>{ if(new Date(d+"T12:00:00").getDay()!==5) out.push(d); }); return out; }
+function auditRun(){
+  const t=today(), y=addDays(t,-1), ps=projStart(), R=[]; const wn=Object.fromEntries(workers().map(w=>[w.id,w.name]));
+  const C=(id,area,sev,title,rule,ok,findings,rec,ref,metric)=>R.push({id,area,sev,title,rule,ok,findings:findings||[],rec,ref:ref||"",metric:metric||""});
+  const CV=st().contractValue, Q=st().qty, A=acts();
+  /* ---- A: Contract & billing ---- */
+  const roof=sum(A.filter(a=>a.group==="سقف"),a=>a.rate), paint=sum(A.filter(a=>a.group==="دهان"),a=>a.rate);
+  const rateOk=Math.abs(roof-2.8)<0.0005&&Math.abs(paint-0.9)<0.0005;
+  C("A1","A","high","أسعار البنود مطابقة لأسعار العقد","مجموع بنود السقف = 2.800 ر.ع/م² ومجموع بنود الدهان = 0.900 ر.ع/م² (الإجمالي 3.700 × 6,500 م² = 24,050 ر.ع)",rateOk,
+    rateOk?[]:[`السقف: ${omr(roof)} (المطلوب 2.800)`,`الدهان: ${omr(paint)} (المطلوب 0.900)`,`الفرق على كامل الكمية: ${omr((roof+paint-3.7)*Q)} ر.ع`],
+    "عدّل أسعار البنود في تبويب الفواتير حتى يطابق مجموعها سعر العقد، وإلا ستُحسب الفواتير والإنتاج بقيمة خاطئة.","العقد – جدول الأسعار");
+  const d=doneBy(); const over=A.filter(a=>d[a.key]>Q);
+  C("A2","A","med","الكميات المنفذة لا تتجاوز كمية العقد","الكمية التراكمية لكل بند ≤ "+n0(Q)+" م²",!over.length,over.map(a=>`${a.name}: ${n0(d[a.key])} م² (زيادة ${n0(d[a.key]-Q)})`),
+    "الكميات الزائدة تحتاج أمر تغيير (Variation) أو قياس معتمد من بهوان قبل فوترتها، لأن العقد يُعاد قياسه.","العقد – إعادة القياس");
+  const inv=invoicedNet(), ev=earned(), unb=Math.max(0,ev-inv);
+  const lastInv=S.invoices.map(i=>i.to).filter(Boolean).sort().pop()||ps; const age=Math.round((new Date(t)-new Date(lastInv))/864e5);
+  C("A3","A","high","الأعمال المنفذة تُفوتر في وقتها","الأعمال غير المفوترة < 10% من العقد، وآخر فاتورة خلال 30 يوماً",!(unb>CV*0.1||(unb>0&&age>30)),
+    unb>0?[`أعمال منفذة غير مفوترة: ${omr(unb)} ر.ع (${n0(unb/CV*100)}% من العقد)`,`آخر فترة مفوترة تنتهي ${lastInv} (منذ ${age} يوم)`]:[],
+    "جهّز مستخلصاً بالأعمال غير المفوترة من تبويب الفواتير وقدّمه لبهوان؛ التأخير في الفوترة يؤخر التدفق النقدي.","العقد – شروط الدفع",omr(unb));
+  const pd=Number(st().payDays)||30; const late=S.invoices.filter(i=>i.status!=="paid"&&i.to&&addDays(i.to,pd+7)<t);
+  C("A4","A","high","تحصيل الفواتير في موعدها","لا توجد فاتورة غير مدفوعة تجاوزت "+pd+" يوماً + 7 أيام للاعتماد",!late.length,late.map(i=>`فاتورة ${i.no||"؟"} (${i.from||""}←${i.to}) بقيمة ${omr(i.amount)} – متأخرة ${Math.round((new Date(t)-new Date(addDays(i.to,pd+7)))/864e5)} يوم`),
+    "تابع التحصيل كتابياً مع بهوان وارفق شهادة الاعتماد؛ سجّل تاريخ ومبلغ الاستلام فور الدفع.","العقد – مدة السداد");
+  const short=S.invoices.filter(i=>i.status==="paid"&&Number(i.paidAmount)>0&&Number(i.paidAmount)<i.amount*(1+st().vatRate/100)-1);
+  C("A5","A","med","المبالغ المستلمة مطابقة لقيمة الفواتير","المستلم = القيمة + الضريبة، أو الفرق مبرر (خصم وجبات، استقطاع…)",!short.length,short.map(i=>`فاتورة ${i.no}: مستحق ${omr(i.amount*(1+st().vatRate/100))} – مستلم ${omr(i.paidAmount)} – فرق ${omr(i.amount*(1+st().vatRate/100)-i.paidAmount)}`),
+    "اطلب من بهوان كشف الخصومات لكل دفعة وطابقه مع خصم الوجبات وأي استقطاعات أخرى.","");
+  const f=forecast(); const tf=st().targetFinish; let lateDays=0; if(tf&&f.finish) lateDays=Math.round((new Date(f.finish)-new Date(tf))/864e5);
+  C("A6","A","high","الالتزام بالجدول الزمني (غرامة التأخير)","تاريخ الانتهاء المطلوب محدد، والانتهاء المتوقع لا يتجاوزه",!!tf&&lateDays<=0,
+    !tf?["لم يُحدد تاريخ الانتهاء المطلوب من بهوان في الإعدادات"]:lateDays>0?[`الانتهاء المتوقع ${f.finish} بعد الموعد بـ ${lateDays} يوم`,`الغرامة المحتملة ${omr(Math.min(lateDays*(st().ldPerDay||0),st().ldMax||0))} ر.ع`]:(!f.finish?["لا يوجد إنتاج كافٍ خلال آخر 14 يوماً لحساب التوقع"]:[]),
+    "حدد تاريخ الانتهاء التعاقدي، وارفع معدل الإنتاج أو اطلب تمديداً موثقاً بالمشاكل المسجلة.","العقد – غرامة التأخير");
+  const cl=S.checklist.filter(x=>!x.done);
+  C("A7","A","med","المستندات والالتزامات التعاقدية مستوفاة","كل بنود قائمة الالتزامات (التأمين، السلامة، الطرق، الشهادات…) منجزة",!cl.length,cl.sort((a,b)=>(a.order||0)-(b.order||0)).map(x=>`${x.title}${x.ref?` (${x.ref})`:""}`),
+    "أكمل البنود الناقصة واحفظ نسخها؛ المراجع الخارجي يطلب إثبات التأمين وخطط السلامة والجودة.","العقد – المواد 8، 9، 16");
+  /* ---- B: Labour & payroll ---- */
+  const wdays=workDays(ps,y); const aw=activeWorkers();
+  const miss=wdays.filter(dd=>{ const r=attRec(dd); return aw.some(w=>(!w.start||w.start<=dd)&&!(r[w.id]&&r[w.id].s)); });
+  C("B1","B","high","الحضور مسجّل لكل يوم عمل","كل أيام العمل منذ "+ps+" (عدا الجمعة) فيها حالة لكل عامل",!miss.length,miss.slice(-15).map(dd=>{ const r=attRec(dd); const n=aw.filter(w=>(!w.start||w.start<=dd)&&!(r[w.id]&&r[w.id].s)).length; return `${dd}: ${n} عامل بدون حالة`; }).concat(miss.length>15?[`… و${miss.length-15} يوم آخر`]:[]),
+    "أكمل الحضور من «جدول الحضور الشهري». الرواتب والوجبات والتكلفة تعتمد عليه.","",miss.length+" يوم");
+  const badT=[], noQ=[], absQ=[], jump=[];
+  Object.keys(S.attendance).filter(dd=>dd>=ps&&dd<=t).sort().forEach(dd=>{ const r=attRec(dd); Object.entries(r).forEach(([wid,x])=>{ const nm=wn[wid]||"عامل محذوف"; const w=workers().find(z=>z.id===wid)||{};
+    if(x.s==="P"){ const h=hrs(x.in,x.out); if(!x.in||!x.out||h>13||h<4) badT.push(`${dd} – ${nm}: ${x.in||"؟"}–${x.out||"؟"} (${n0(h)} ساعة)`);
+      if(x.qty===undefined||x.qty===""||x.qty===null) noQ.push(`${dd} – ${nm}`);
+      const q=Number(x.qty)||0; if(q>300||(w.target&&q>w.target*2.5)) jump.push(`${dd} – ${nm}: ${n0(q)} م²${w.target?` (الهدف ${n0(w.target)})`:""}`); }
+    else if(x.s&&Number(x.qty)>0) absQ.push(`${dd} – ${nm}: ${ATT_ST.find(z=>z[0]===x.s)?.[1]||x.s} ومسجّل له ${n0(x.qty)} م²`); }); });
+  C("B2","B","med","أوقات الحضور والانصراف منطقية","كل حاضر له وقت حضور وانصراف، وساعات العمل بين 4 و13 ساعة",!badT.length,badT.slice(-15),"صحّح الأوقات من شاشة الحضور اليومية.","قانون العمل – ساعات العمل",badT.length+" سجل");
+  C("B3","B","high","إنجاز كل عامل حاضر مسجّل","كل عامل حاضر له كمية منجزة (م²) — أساس خصم الإنتاجية والفوترة",!noQ.length,noQ.slice(-15).concat(noQ.length>15?[`… و${noQ.length-15} سجل آخر`]:[]),
+    "اطلب من المشرف تسجيل أمتار كل عامل يومياً (أو بالتقرير الصوتي). بدونها لا تُحسب الإنتاجية والقيمة المنجزة بدقة.","",noQ.length+" سجل");
+  C("B4","B","high","لا إنجاز مسجّل لعامل غائب","العامل الغائب أو في إجازة لا يُسجّل له إنتاج",!absQ.length,absQ,"صحّح الحالة أو احذف الكمية؛ هذا مؤشر على خطأ إدخال أو تلاعب.","");
+  const names={}; workers().forEach(w=>{ const k=String(w.name||"").replace(/\s+/g," ").trim(); (names[k]=names[k]||[]).push(w); });
+  const dup=Object.entries(names).filter(([k,v])=>k&&v.length>1);
+  C("B5","B","high","لا يوجد عمال مكررون","كل عامل مسجّل مرة واحدة (التكرار يضاعف الراتب والوجبات)",!dup.length,dup.map(([k,v])=>`${k} مسجّل ${v.length} مرات`),
+    "احذف السجل المكرر أو أضف ما يميز الاسمين (رقم البطاقة).","",dup.length+"");
+  const noSal=aw.filter(w=>!w.salary), noTgt=aw.filter(w=>!w.target);
+  C("B6","B","med","بيانات العمال مكتملة","لكل عامل راتب وهدف يومي (م²)",!noSal.length&&!noTgt.length,[...noSal.map(w=>`${w.name}: بدون راتب`),...noTgt.map(w=>`${w.name}: بدون هدف يومي`)],"أكمل البيانات بزر «تعديل» في قائمة العمال.","");
+  const curM=month(t); const unpaid=[]; const pms=new Set(Object.keys(S.attendance).map(month)); [...pms].filter(m=>m<curM).forEach(m=>aw.forEach(w=>{ const r=payRow(m,w); if(r.P&&!r.paid) unpaid.push(`${m} – ${w.name}: ${omr(r.net)} ر.ع`); }));
+  C("B7","B","high","رواتب الأشهر السابقة مدفوعة","لا توجد رواتب مستحقة لأشهر منتهية بدون تسجيل دفع",!unpaid.length,unpaid,"ادفع وسجّل الدفع مع توقيع العامل على كشف الرواتب. تأخير الرواتب مخالفة لنظام حماية الأجور.","نظام حماية الأجور WPS");
+  const mism=[]; Object.values(S.payroll).filter(p=>p.paid).forEach(p=>{ const w=workers().find(x=>x.id===p.wid); if(!w) return; const r=payRow(p.month,w); if(Math.abs((Number(p.paidAmount)||0)-r.net)>1) mism.push(`${p.month} – ${w.name}: مدفوع ${omr(p.paidAmount)} – المحسوب الآن ${omr(r.net)}`); });
+  C("B8","B","med","المدفوع مطابق لكشف الرواتب","المبلغ المسجل كمدفوع = الصافي المحسوب (فرق ≤ 1 ر.ع)",!mism.length,mism,"راجع التعديلات التي تمت بعد الدفع على الحضور أو الخصومات، وسوِّ الفرق في الشهر التالي.","");
+  const adv=[]; [...new Set(S.deductions.map(x=>month(x.date)))].forEach(m=>aw.forEach(w=>{ const s=sum(S.deductions.filter(x=>x.wid===w.id&&month(x.date)===m),x=>x.amount); if(w.salary&&s>w.salary*0.5) adv.push(`${m} – ${w.name}: سلف وخصومات ${omr(s)} من راتب ${omr(w.salary)}`); }));
+  C("B9","B","low","السلف والخصومات ضمن الحد","مجموع سلف وخصومات العامل الشهرية ≤ 50% من راتبه",!adv.length,adv,"اعتمد السلف الكبيرة كتابياً وقسّطها على أكثر من شهر.","قانون العمل – الاستقطاع من الأجر");
+  const low=[]; const l7=workDays(addDays(t,-7),y); aw.filter(w=>w.target).forEach(w=>{ let n=0,s=0; l7.forEach(dd=>{ const c=prodCut(w,attRec(dd)[w.id]); if(c){ n++; s+=c.pct; } }); if(n>=3&&s/n<0.8) low.push(`${w.name}: متوسط الإنجاز ${n0(s/n*100)}% من الهدف خلال ${n} أيام`); });
+  C("B10","B","low","إنتاجية العمال قريبة من الهدف","متوسط إنجاز كل عامل آخر 7 أيام ≥ 80% من هدفه",!low.length,low,"راجع توزيع العمل والمواد؛ إن استمر الانخفاض طبّق خصم الإنتاجية أو أعد تقييم الهدف.","");
+  /* ---- C: Expenses ---- */
+  const exs=S.expenses.filter(e=>e.date>=ps||!e.date);
+  const noR=exs.filter(e=>!String(e.rcpt||"").trim()); const noRbig=noR.filter(e=>Number(e.amount)>=20);
+  C("C1","C","high","كل مصروف له إيصال","كل مصروف مسجّل برقم إيصال/فاتورة (إلزامي للمبالغ ≥ 20 ر.ع)",!noRbig.length,noR.slice(0,20).map(e=>`${e.date} – ${e.cat}: ${omr(e.amount)}${e.desc?" – "+e.desc:""}`).concat(noR.length>20?[`… و${noR.length-20} مصروف آخر`]:[]),
+    "اجمع الإيصالات وأدخل أرقامها بزر «تعديل». المراجع الخارجي يرفض المصروف غير المؤيد بمستند.","",`${noR.length} مصروف · ${omr(sum(noR,e=>e.amount))} ر.ع`);
+  const seen={}, dups=[]; exs.forEach(e=>{ const k=[e.date,Number(e.amount).toFixed(3),e.cat].join("|"); if(seen[k]) dups.push(`${e.date} – ${e.cat}: ${omr(e.amount)} (${seen[k].desc||""} / ${e.desc||""})`); else seen[k]=e; });
+  C("C2","C","med","لا توجد مصروفات مكررة","لا يوجد مصروفان بنفس التاريخ والمبلغ والبند",!dups.length,dups,"تأكد من الإيصالات واحذف المكرر.","");
+  const manFood=food().on?exs.filter(e=>/أكل|وجبات|طعام/.test(e.cat||"")&&e.date>=food().start):[];
+  C("C3","C","high","الأكل غير محسوب مرتين","عند تفعيل خصم وجبات بهوان التلقائي لا يُسجّل أكل يدوياً بعد "+food().start,!manFood.length,manFood.map(e=>`${e.date} – ${e.cat}: ${omr(e.amount)}`),"احذف قيود الأكل اليدوية أو أوقف الخصم التلقائي، أحدهما فقط.","");
+  const badD=S.expenses.filter(e=>!e.date||e.date>t||e.date<ps);
+  C("C4","C","low","تواريخ المصروفات صحيحة","لا مصروفات بتاريخ مستقبلي أو قبل بداية المشروع ("+ps+")",!badD.length,badD.map(e=>`${e.date||"بدون تاريخ"} – ${e.cat}: ${omr(e.amount)}`),"صحّح التاريخ؛ المصروفات قبل البداية تُصنف كتكاليف تجهيز.","");
+  const noDesc=exs.filter(e=>!String(e.desc||"").trim()||!String(e.to||"").trim());
+  C("C5","C","low","المصروف موصوف ومعروف المستفيد","كل مصروف له وصف وجهة صرف",!noDesc.length,noDesc.slice(0,15).map(e=>`${e.date} – ${e.cat}: ${omr(e.amount)}`),"أكمل الوصف و«دُفع إلى».","",noDesc.length+"");
+  const M=month(t); const dayN=Number(t.slice(8)); const bud=monthlyBudget()*dayN/daysIn(M); let actM=0; eachDay(M+"-01",t,dd=>{ actM+=dayCmp(dd).cost; });
+  C("C6","C","med","التكلفة ضمن الميزانية","التكلفة الفعلية للشهر حتى اليوم ≤ الميزانية المتوقعة لنفس الفترة",!(bud>0&&actM>bud*1.05),bud>0?[`الفعلي ${omr(actM)} – الميزانية ${omr(bud)} (${n0(actM/bud*100)}%)`]:["الميزانية الشهرية غير محددة"],"راجع البنود التي تجاوزت الميزانية في تبويب المصروفات.","",bud?n0(actM/bud*100)+"%":"");
+  /* ---- D: Production & schedule ---- */
+  let need=0; if(tf&&tf>t){ const left=workDays(t,tf).length; need=left?f.remaining/left:0; }
+  C("D1","D","high","معدل الإنتاج يكفي للانتهاء في الموعد","متوسط الإنتاج اليومي (آخر 14 يوماً) ≥ المطلوب يومياً حتى تاريخ الانتهاء",!(tf&&need>0&&f.avg<need),tf?[`المتوسط الفعلي ${omr(f.avg)} ر.ع/يوم – المطلوب ${omr(need)} ر.ع/يوم`,`المتبقي ${omr(f.remaining)} ر.ع`]:["لم يُحدد تاريخ الانتهاء"],"زِد عدد العمال أو ساعات العمل، أو وثّق أسباب التأخير الخارجة عن إرادتكم.","",tf?n0(f.avg/(need||1)*100)+"%":"");
+  const l14=workDays(addDays(t,-14),y).map(dayCmp).filter(r=>r.prod||r.cost); const P14=sum(l14,r=>r.prod), C14=sum(l14,r=>r.cost);
+  C("D2","D","high","المشروع يغطي تكلفته","آخر 14 يوماً: قيمة الإنتاج ≥ التكلفة (عمالة + أكل + مصروفات)",!(C14>0&&P14<C14),l14.length?[`الإنتاج ${omr(P14)} – التكلفة ${omr(C14)} – الفرق ${omr(P14-C14)}`,`أيام بخسارة: ${l14.filter(r=>r.net<0).length} من ${l14.length}`]:[],
+    "إما أن الإنتاج غير مسجّل كاملاً (راجع B3) أو أن الإنتاجية منخفضة؛ حلّل المقارنة اليومية في الرئيسية.","",C14?n0(P14/C14*100)+"%":"");
+  const noLoc=S.progress.filter(p=>Number(p.qty)&&!String(p.location||"").trim());
+  C("D3","D","med","كل إنتاج مرتبط بموقع","كل كمية منجزة مسجّلة بالمبنى-الطابق-الشقة (لازم للقياس والفوترة)",!noLoc.length,noLoc.slice(-15).map(p=>`${p.date} – ${actMap()[p.act]?.name||p.act}: ${n0(p.qty)} م²`),"أضف الموقع؛ بهوان تعتمد القياس حسب الموقع.","",noLoc.length+"");
+  C("D4","D","med","لا قفزات غير طبيعية في الإنجاز","إنجاز العامل اليومي ≤ 300 م² و ≤ 2.5 × هدفه",!jump.length,jump,"تحقق ميدانياً من الكميات الكبيرة قبل اعتمادها في المستخلص.","");
+  const oi=S.issues.filter(i=>i.status!=="closed"&&Number(i.days)>0&&i.date<addDays(t,-7));
+  C("D5","D","med","المشاكل المؤثرة على الجدول موثقة ومتابعة","لا توجد مشكلة مفتوحة بأيام ضائعة لأكثر من 7 أيام بدون إغلاق",!oi.length,oi.map(i=>`${i.date}: ${i.text} (${n0(i.days)} يوم)`),"أرسل إشعاراً كتابياً لبهوان بكل تأخير خارج عن إرادتكم لحفظ حق التمديد، ثم أغلق المشكلة.","العقد – الإشعارات والتمديد");
+  /* ---- E: Equipment ---- */
+  const own=S.equipment.filter(e=>e.own!=="مستأجرة"); const noP=own.filter(e=>!Number(e.price));
+  C("E1","E","med","سجل الأصول مكتمل","كل معدة مملوكة لها سعر شراء وتاريخ وعمر افتراضي",!noP.length,noP.map(e=>`${e.name} ${e.code||""}`),"أضف سعر الشراء بزر «تعديل»؛ بدونه لا تظهر قيمة الأصول ولا الإهلاك في القوائم.","",noP.length+"");
+  const exp15=addDays(t,15); const cert=S.equipment.filter(e=>!e.exp||e.exp<exp15);
+  C("E2","E","high","شهادات فحص المعدات سارية","كل معدة لها شهادة فحص سارية لأكثر من 15 يوماً",!cert.length,cert.map(e=>`${e.name} ${e.code||""}: ${e.exp?(e.exp<t?"منتهية "+e.exp:"تنتهي "+e.exp):"لا توجد شهادة مسجلة"}`),"جدّد الشهادات وسجّل تواريخها؛ العقد يشترطها ويحق لبهوان إيقاف المعدة.","العقد – المادة 16");
+  const down=[]; S.equipment.forEach(e=>{ let run=0, mx=0; eachDay(ps,t,dd=>{ const s=(S.equipLog[dd]||{}).st?.[e.id]; if(s==="down"||s==="maint"){ run++; mx=Math.max(mx,run); } else if(s) run=0; }); if(mx>=4) down.push(`${e.name} ${e.code||""}: ${mx} أيام متتالية معطلة/صيانة`); });
+  C("E3","E","high","لا معدة معطلة أكثر من 96 ساعة","لا توجد معدة «لا تعمل/صيانة» 4 أيام متتالية",!down.length,down,"أصلح المعدة أو استبدلها فوراً؛ بعد 96 ساعة يحق لبهوان الاستبدال على حسابكم.","العقد – المادة 19.3");
+  const noEq=S.equipment.length?workDays(ps,y).filter(dd=>!S.equipLog[dd]||!Object.keys(S.equipLog[dd].st||{}).length):[];
+  C("E4","E","low","حالة المعدات مسجلة يومياً","تقرير المعدات اليومي مسجّل لكل يوم عمل",!noEq.length,noEq.slice(-10).map(dd=>dd).concat(noEq.length>10?[`… و${noEq.length-10} يوم آخر`]:[]),"اضغط «الكل يعمل» يومياً ثم عدّل المعطل فقط.","",noEq.length+" يوم");
+  /* ---- F: Subcontractors ---- */
+  const op=S.subs.map(s=>{ const w=sum(S.subWork.filter(x=>x.subId===s.id),x=>(Number(x.qty)||0)*(Number(x.rate)||0)); const p=sum(S.subPay.filter(x=>x.subId===s.id),x=>x.amount); return {s,w,p}; }).filter(x=>x.p>x.w+0.5);
+  C("F1","F","high","لا مدفوعات لمقاول باطن تتجاوز أعماله","مدفوعات كل مقاول ≤ قيمة أعماله المسجلة",!op.length,op.map(x=>`${x.s.name}: أعمال ${omr(x.w)} – مدفوع ${omr(x.p)} – زيادة ${omr(x.p-x.w)}`),"سجّل الأعمال المقابلة أو استرد الزيادة؛ الدفع المقدم يحتاج موافقة مكتوبة.","");
+  /* ---- G: Data & access ---- */
+  if(AU_SEC){ C("G1","G","high","أرقام الدخول ليست الافتراضية","لا يُستخدم الرقم 1234 أو 5678 أو أي رقم من 4 خانات سهلة، ولكل مستخدم رقم مختلف",!AU_SEC.weak.length&&!AU_SEC.dupPins,[...AU_SEC.weak.map(n=>`${n}: رقم دخول افتراضي أو ضعيف`),...(AU_SEC.dupPins?["يوجد مستخدمان بنفس الرقم"]:[])],"غيّر الأرقام من ورقة Users في Google Sheet واجعلها 6 أرقام على الأقل.","",AU_SEC.users+" مستخدم");
+    C("G2","G","med","الفصل بين الصلاحيات","مدير واحد على الأقل، ولكل مشرف حساب باسمه حتى يُعرف من سجّل كل قيد",AU_SEC.managers>=1&&AU_SEC.site>=1&&!AU_SEC.generic,[...(AU_SEC.generic?["يوجد حساب عام باسم «مشرف الموقع» بدل اسم الشخص"]:[]),`مدراء: ${AU_SEC.managers} – مشرفون: ${AU_SEC.site}`],"أنشئ حساباً لكل مشرف باسمه في ورقة Users.",""); }
+  else C("G1","G","high","أرقام الدخول ليست الافتراضية","يُفحص من السيرفر","na",["لم يتم الفحص بعد – اضغط «تشغيل المراجعة»"],"","");
+  const noBy=[...S.expenses,...S.progress.filter(p=>!p.fromAtt),...S.deductions].filter(x=>!x.by);
+  C("G3","G","low","كل قيد معروف من سجّله","كل مصروف وإنتاج وخصم مسجّل باسم المستخدم (سجل المراجعة)",!noBy.length,noBy.length?[`${noBy.length} قيد بدون اسم من سجّله (غالباً قيود قديمة قبل تفعيل الدخول بالرقم)`]:[],"القيود الجديدة تُسجّل تلقائياً باسم المستخدم؛ لا إجراء مطلوب للقيود القديمة سوى التوثيق.","");
+  return R;
+}
+function auditScore(R){ const ap=R.filter(r=>r.ok!=="na"); const tw=sum(ap,r=>AU_SEV[r.sev].w), pw=sum(ap.filter(r=>r.ok),r=>AU_SEV[r.sev].w); return {score:tw?Math.round(pw/tw*100):100,pass:ap.filter(r=>r.ok).length,fail:ap.filter(r=>!r.ok).length,high:ap.filter(r=>!r.ok&&r.sev==="high").length,med:ap.filter(r=>!r.ok&&r.sev==="med").length,low:ap.filter(r=>!r.ok&&r.sev==="low").length,n:ap.length}; }
+const auRating=s=>s>=85?["مُرضٍ","good"]:s>=65?["يحتاج تحسيناً","warn"]:["غير مُرضٍ – يحتاج إجراء عاجلاً","bad"];
+function auResp(id){ return ((st().audit||{}).resp||{})[id]||{}; }
+async function auLoadSec(){ if(typeof gsCall!=="function") return; try{ AU_SEC=await gsCall("apiSecCheck"); }catch(e){ AU_SEC=null; } }
+function vAudit(){
+  if(AU_SEC===null&&!vAudit.tried){ vAudit.tried=true; auLoadSec().then(()=>{ if(tab==="audit") render(); }); }
+  const R=auditRun(), S2=auditScore(R), [rl,rc]=auRating(S2.score); const last=(st().audit||{}).last;
+  const list=R.filter(r=>auFilter==="all"||(auFilter==="fail"?r.ok===false:r.ok===true));
+  return `
+  <section class="panel">
+    <div class="row"><h2>المراجع الداخلي</h2><div class="toolbar"><button class="btn sm" id="au-run">تشغيل المراجعة وحفظها</button>${printBtn("audit","تقرير المراجعة الداخلية")}${printBtn("extaudit","حزمة المراجعة الخارجية")}</div></div>
+    <p class="note">${R.length} اختباراً رقابياً ثابتاً على بيانات المشروع (العقد، الرواتب، المنصرفات، الإنتاج، المعدات، الصلاحيات). كل اختبار له قاعدة واضحة ونتيجة ودليل وتوصية. ${last?`آخر مراجعة محفوظة: ${esc(last.date)} – النتيجة ${last.score}%`:"لم تُحفظ مراجعة بعد."}</p>
+    <div class="kpis">
+      <div class="kpi"><span class="l">درجة الرقابة الداخلية</span><span class="v ${rc==="good"?"pos":rc==="bad"?"neg":""}">${S2.score}%</span><span class="n">${rl}</span></div>
+      <div class="kpi"><span class="l">ملاحظات عالية الخطورة</span><span class="v ${S2.high?"neg":""}">${S2.high}</span></div>
+      <div class="kpi"><span class="l">متوسطة / منخفضة</span><span class="v">${S2.med} / ${S2.low}</span></div>
+      <div class="kpi"><span class="l">اختبارات ناجحة</span><span class="v pos">${S2.pass} / ${S2.n}</span></div>
+    </div>
+    <div class="toolbar" style="margin:8px 0"><button class="pill ${auFilter==="fail"?"acc":""}" data-auf="fail">الملاحظات (${S2.fail})</button><button class="pill ${auFilter==="pass"?"acc":""}" data-auf="pass">الناجحة (${S2.pass})</button><button class="pill ${auFilter==="all"?"acc":""}" data-auf="all">الكل</button></div>
+    ${Object.keys(AU_AREA).map(ar=>{ const L=list.filter(r=>r.area===ar); if(!L.length) return ""; return `<h3>${AU_AREA[ar]}</h3>${L.map(r=>{ const rs=auResp(r.id); return `<details class="au ${r.ok===true?"au-ok":r.ok==="na"?"":"au-"+r.sev}"><summary><b>${r.id}</b> ${esc(r.title)} <span class="pill ${r.ok===true?"good":r.ok==="na"?"":AU_SEV[r.sev].c}">${r.ok===true?"ناجح":r.ok==="na"?"لم يُفحص":"خطورة "+AU_SEV[r.sev].l}</span>${r.metric&&r.ok!==true?` <span class="ref">${esc(r.metric)}</span>`:""}</summary>
+      <p class="note"><b>القاعدة:</b> ${esc(r.rule)}${r.ref?` · <b>المرجع:</b> ${esc(r.ref)}`:""}</p>
+      ${r.findings.length?`<ul class="au-f">${r.findings.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`:""}
+      ${r.ok===false?`<p><b>التوصية:</b> ${esc(r.rec)}</p><form class="entry au-resp" data-aur="${r.id}"><label style="grid-column:1/-1">رد الإدارة / الإجراء المتخذ<input name="resp" value="${esc(rs.resp||"")}" placeholder="مثال: تم تعديل الأسعار بتاريخ…"></label><label>المسؤول<input name="owner" value="${esc(rs.owner||"")}"></label><label>تاريخ الإغلاق المتوقع<input type="date" name="due" value="${esc(rs.due||"")}"></label><button class="btn sm" type="submit">حفظ الرد</button></form>`:""}
+    </details>`; }).join("")}`; }).join("")}
+  </section>`;
+}
+document.addEventListener("click",async ev=>{ const t=ev.target.closest("button"); if(!t) return;
+  if(t.dataset.auf){ ev.stopImmediatePropagation(); auFilter=t.dataset.auf; render(); return; }
+  if(t.id==="au-run"){ ev.stopImmediatePropagation(); toast("جارٍ تشغيل المراجعة…"); await auLoadSec(); const R=auditRun(), s=auditScore(R); const a=st().audit||{}; const hist=(a.hist||[]).filter(h=>h.date!==today()).concat([{date:today(),score:s.score,high:s.high,fail:s.fail}]).slice(-60);
+    await saveSettings({audit:{...a,last:{date:today(),score:s.score,high:s.high,fail:s.fail,by:me||""},hist}}); toast(`تمت المراجعة: ${s.score}%`); render(); return; }
+},true);
+document.addEventListener("submit",async ev=>{ const f=ev.target; if(!f.dataset||!f.dataset.aur) return; ev.preventDefault(); ev.stopImmediatePropagation();
+  const a=st().audit||{}; const resp={...(a.resp||{})}; resp[f.dataset.aur]={resp:f.resp.value.trim(),owner:f.owner.value.trim(),due:f.due.value,date:today(),by:me||""};
+  await saveSettings({audit:{...a,resp}}); toast("تم حفظ رد الإدارة"); },true);
+
+/* ---------- تقارير الطباعة ---------- */
+function buildAuditPrint(){
+  const R=auditRun(), s=auditScore(R), [rl]=auRating(s.score); const F=R.filter(r=>r.ok===false); const hist=((st().audit||{}).hist||[]).slice(-8);
+  return ["تقرير المراجعة الداخلية "+today(), `<style>@page{size:A4 landscape;margin:9mm}th,td{padding:3pt 4pt;font-size:8.8pt}</style>${rptHead("تقرير المراجعة الداخلية","مشروع يتي بلازا – عقد BFT/SUBC/33761/26 · تاريخ المراجعة "+today())}
+  <h2>1. الخلاصة</h2><table><tbody><tr><td>درجة الرقابة الداخلية</td><td class="n"><b>${s.score}%</b> – ${rl}</td></tr><tr><td>عدد الاختبارات المطبقة</td><td class="n">${s.n}</td></tr><tr><td>اختبارات ناجحة</td><td class="n">${s.pass}</td></tr><tr><td>ملاحظات: عالية / متوسطة / منخفضة</td><td class="n">${s.high} / ${s.med} / ${s.low}</td></tr>${hist.length>1?`<tr><td>تطور الدرجة</td><td class="n">${hist.map(h=>`${h.date.slice(5)}: ${h.score}%`).join(" · ")}</td></tr>`:""}</tbody></table>
+  <h2>2. المنهجية</h2><p class="muted">اختبارات رقابية آلية ثابتة تُطبق على كامل قيود المشروع منذ ${projStart()} (وليس عينة): مطابقة الأسعار والكميات مع العقد، اكتمال الحضور والإنجاز، صحة الرواتب والخصومات، تأييد المصروفات بمستندات، الالتزام بالجدول، حالة المعدات والشهادات، الصلاحيات. درجة الخطورة: عالية = أثر مالي أو تعاقدي مباشر، متوسطة = ضعف رقابي يحتاج تصحيحاً، منخفضة = تحسين. الدرجة = مجموع أوزان الاختبارات الناجحة ÷ مجموع الأوزان (عالية 3، متوسطة 2، منخفضة 1).</p>
+  <h2>3. الملاحظات والتوصيات</h2>
+  ${F.length?`<table><thead><tr><th>#</th><th>المجال</th><th>الملاحظة</th><th>الخطورة</th><th>الدليل</th><th>التوصية</th><th>رد الإدارة</th></tr></thead><tbody>${F.sort((a,b)=>AU_SEV[b.sev].w-AU_SEV[a.sev].w).map(r=>{ const rs=auResp(r.id); return `<tr><td>${r.id}</td><td>${AU_AREA[r.area]}</td><td><b>${esc(r.title)}</b><br><span class="muted">${esc(r.rule)}</span></td><td>${AU_SEV[r.sev].l}</td><td>${r.findings.slice(0,6).map(esc).join("<br>")}${r.findings.length>6?`<br>… (+${r.findings.length-6})`:""}</td><td>${esc(r.rec)}</td><td>${rs.resp?esc(rs.resp)+(rs.owner?`<br><span class="muted">${esc(rs.owner)}${rs.due?" – "+esc(rs.due):""}</span>`:""):"—"}</td></tr>`; }).join("")}</tbody></table>`:"<p>لا توجد ملاحظات.</p>"}
+  <h2>4. الاختبارات الناجحة</h2><p class="muted">${R.filter(r=>r.ok===true).map(r=>`${r.id} ${esc(r.title)}`).join(" · ")||"—"}</p>
+  <div class="foot"><span>المراجع الداخلي: ............</span><span>المدير: ............</span></div>`];
+}
+function buildExtAudit(){
+  const t=today(), ps=projStart(), CV=st().contractValue, vat=st().vatRate; const R=auditRun(), s=auditScore(R);
+  const ev=earned(), inv=invoicedNet(), rec=received(); const wn=Object.fromEntries(workers().map(w=>[w.id,w.name]));
+  const W=wageAccrual(ps,t), wagesDue=sum(W,r=>r.due), wagesPaid=salariesPaidTotal(); const fd=foodTotal(); const expT=expensesTotal(S.expenses); const subP=subPaidTotal(), subW=subWorkTotal();
+  const cats={}; S.expenses.forEach(e=>cats[e.cat||"أخرى"]=(cats[e.cat||"أخرى"]||0)+(Number(e.amount)||0));
+  const A=eqAssets(); const cost=wagesDue+fd+expT+subW;
+  const months=[...new Set([...Object.keys(S.attendance).map(month),month(t)])].filter(m=>m>=month(ps)).sort();
+  const sec=(n,ttl)=>`<h2 class="pb">${n}. ${ttl}</h2>`;
+  const body=`<style>@page{size:A4 landscape;margin:10mm}th,td{padding:2.5pt 4pt;font-size:8.6pt}h2{font-size:12pt}.cover{text-align:center;padding-top:120pt}.cover h1{font-size:22pt}.cover p{font-size:12pt;margin:6pt}</style>
+  <div class="cover"><h1>حزمة المراجعة الخارجية</h1><p><b>مشروع يتي بلازا – أسقف جبسية ودهان</b></p><p>عقد الباطن BFT/SUBC/33761/26</p><p>المقاول: Mostafa Almasara Trad Investment SPC · المقاول الرئيسي: Bahwan Furnishing &amp; Trading LLC</p><p>الفترة: من ${ps} حتى ${t}</p><p class="muted">أُعدّت آلياً من نظام إدارة المشروع (قاعدة بيانات Google Sheet) بتاريخ ${t}</p>
+  <table style="margin:30pt auto 0;width:70%"><tbody>${["1. بيانات المشروع والعقد","2. الملخص المالي","3. نتائج المراجعة الداخلية","ملحق أ – سجل الفواتير والتحصيل","ملحق ب – دفتر المنصرفات","ملحق ج – كشوف الرواتب الشهرية","ملحق د – ملخص الحضور الشهري","ملحق هـ – سجل الإنتاج","ملحق و – خصم وجبات بهوان","ملحق ز – السلف والخصومات","ملحق ح – سجل الأصول (المعدات)","ملحق ط – مقاولو الباطن","ملحق ي – المشاكل والتأخير","ملحق ك – ملاحظات على البيانات"].map(x=>`<tr><td>${x}</td></tr>`).join("")}</tbody></table></div>
+  ${sec(1,"بيانات المشروع والعقد")}<table><tbody>
+   <tr><td>قيمة العقد (قبل الضريبة)</td><td class="n">${omr(CV)} ر.ع</td></tr><tr><td>الكمية</td><td class="n">${n0(st().qty)} م² (يُعاد القياس)</td></tr><tr><td>ضريبة القيمة المضافة</td><td class="n">${vat}%</td></tr><tr><td>مدة السداد</td><td class="n">${st().payDays||30} يوم</td></tr><tr><td>تاريخ بدء العمل في النظام</td><td class="n">${ps}</td></tr><tr><td>تاريخ الانتهاء التعاقدي</td><td class="n">${st().targetFinish||"غير محدد"}</td></tr><tr><td>غرامة التأخير</td><td class="n">${omr(st().ldPerDay||0)} ر.ع/يوم بحد أقصى ${omr(st().ldMax||0)}</td></tr><tr><td>المواد</td><td class="n">توريد بهوان (العقد للعمالة والمعدات)</td></tr></tbody></table>
+   <h3>أسعار البنود المعتمدة في النظام</h3><table><thead><tr><th>البند</th><th>المجموعة</th><th class="n">ر.ع/م²</th><th class="n">المنفذ م²</th><th class="n">القيمة</th></tr></thead><tbody>${acts().map(a=>{ const q=doneBy()[a.key]; return `<tr><td>${esc(a.name)}</td><td>${esc(a.group)}</td><td class="n">${omr(a.rate)}</td><td class="n">${n0(q)}</td><td class="n">${omr(Math.min(q,st().qty)*a.rate)}</td></tr>`; }).join("")}</tbody><tfoot><tr><td colspan="2">الإجمالي</td><td class="n">${omr(fullRate())}</td><td></td><td class="n">${omr(ev)}</td></tr></tfoot></table>
+  ${sec(2,"الملخص المالي")}<div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12pt"><div><h3>الإيرادات</h3><table><tbody>
+   <tr><td>قيمة الأعمال المنفذة تراكمياً</td><td class="n">${omr(ev)}</td></tr><tr><td>نسبة الإنجاز المالي</td><td class="n">${n0(ev/CV*100)}%</td></tr><tr><td>المفوتر (قبل الضريبة)</td><td class="n">${omr(inv)}</td></tr><tr><td>أعمال منفذة غير مفوترة</td><td class="n">${omr(Math.max(0,ev-inv))}</td></tr><tr><td>المحصّل من بهوان</td><td class="n">${omr(rec)}</td></tr><tr><td>مستحق التحصيل (شامل الضريبة)</td><td class="n">${omr(Math.max(0,inv*(1+vat/100)-rec))}</td></tr></tbody></table></div>
+   <div><h3>التكاليف (أساس الاستحقاق)</h3><table><tbody><tr><td>رواتب مستحقة حسب الحضور</td><td class="n">${omr(wagesDue)}</td></tr><tr><td>منها مدفوع</td><td class="n">${omr(wagesPaid)}</td></tr><tr><td>وجبات العمال (خصم بهوان)</td><td class="n">${omr(fd)}</td></tr><tr><td>منصرفات تشغيلية</td><td class="n">${omr(expT)}</td></tr><tr><td>أعمال مقاولي الباطن (مدفوع ${omr(subP)})</td><td class="n">${omr(subW)}</td></tr><tr><td><b>إجمالي التكلفة</b></td><td class="n"><b>${omr(cost)}</b></td></tr><tr><td><b>نتيجة المشروع (المنفذ – التكلفة)</b></td><td class="n"><b>${omr(ev-cost)}</b></td></tr><tr><td>الأصول: تكلفة المعدات / القيمة الدفترية</td><td class="n">${omr(A.cost)} / ${omr(A.book)}</td></tr></tbody></table></div></div>
+   <p class="muted">ملاحظة: قيمة المنفذ تشمل الأعمال المنجزة قبل تشغيل النظام (أعمال سابقة) بينما التكاليف تبدأ من ${ps}؛ لذلك النتيجة مؤشر وليست قائمة دخل نهائية.</p>
+   <h3>المنصرفات حسب البند</h3><table><tbody>${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${omr(v)}</td></tr>`).join("")||"<tr><td>لا يوجد</td><td></td></tr>"}</tbody></table>
+  ${sec(3,"نتائج المراجعة الداخلية")}<p>درجة الرقابة الداخلية: <b>${s.score}%</b> (${auRating(s.score)[0]}) · ${s.n} اختبار · ملاحظات عالية/متوسطة/منخفضة: ${s.high}/${s.med}/${s.low}</p>
+   <table><thead><tr><th>#</th><th>الاختبار</th><th>النتيجة</th><th>الدليل</th><th>رد الإدارة</th></tr></thead><tbody>${R.map(r=>{ const rs=auResp(r.id); return `<tr><td>${r.id}</td><td>${esc(r.title)}</td><td>${r.ok===true?"ناجح":r.ok==="na"?"لم يُفحص":"ملاحظة – "+AU_SEV[r.sev].l}</td><td>${r.ok===true?"":r.findings.slice(0,3).map(esc).join("<br>")+(r.findings.length>3?` (+${r.findings.length-3})`:"")}</td><td>${esc(rs.resp||"")}</td></tr>`; }).join("")}</tbody></table>
+  ${sec("أ","سجل الفواتير والتحصيل")}<table><thead><tr><th>رقم</th><th>الفترة</th><th class="n">القيمة</th><th class="n">الضريبة</th><th class="n">الإجمالي</th><th>الحالة</th><th class="n">المستلم</th><th>تاريخ الاستلام</th></tr></thead><tbody>${S.invoices.slice().sort((a,b)=>(a.to||"").localeCompare(b.to||"")).map(i=>`<tr><td>${esc(i.no||"")}</td><td>${esc(i.from||"")} ← ${esc(i.to||"")}</td><td class="n">${omr(i.amount)}</td><td class="n">${omr(i.amount*vat/100)}</td><td class="n">${omr(i.amount*(1+vat/100))}</td><td>${esc((INV_ST.find(x=>x[0]===i.status)||["",""])[1])}</td><td class="n">${omr(i.paidAmount||0)}</td><td>${esc(i.paidDate||"")}</td></tr>`).join("")||`<tr><td colspan="8">لا توجد فواتير</td></tr>`}</tbody></table>
+  ${sec("ب","دفتر المنصرفات")}<table><thead><tr><th>#</th><th>التاريخ</th><th>البند</th><th>الوصف</th><th>دُفع إلى</th><th>الإيصال</th><th>النوع</th><th class="n">ر.ع</th><th>سجّله</th></tr></thead><tbody>${S.expenses.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map((e,i)=>`<tr><td>${i+1}</td><td>${esc(e.date)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc||"")}</td><td>${esc(e.to||"")}</td><td>${esc(e.rcpt||"—")}</td><td>${{daily:"يومي",monthly:"شهري",once:"مرة"}[e.freq]||""}</td><td class="n">${omr(e.amount)}</td><td>${esc(e.by||"")}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="7">الإجمالي</td><td class="n">${omr(expT)}</td><td></td></tr></tfoot></table>
+  ${months.map((m,mi)=>{ const rows=activeWorkers().map(w=>({w,r:payRow(m,w)})).filter(x=>x.r.P||x.r.A||x.r.paid); if(!rows.length) return ""; return `${sec(mi?"ج-"+(mi+1):"ج","كشف رواتب "+m)}<table><thead><tr><th>العامل</th><th class="n">الراتب</th><th class="n">حضور</th><th class="n">غياب</th><th class="n">م²</th><th class="n">خصم إنتاجية</th><th class="n">سلف/خصومات</th><th class="n">الصافي</th><th>الحالة</th><th class="n">المدفوع</th><th>تاريخ الدفع</th></tr></thead><tbody>${rows.map(({w,r})=>`<tr><td>${esc(w.name)}</td><td class="n">${omr(w.salary)}</td><td class="n">${r.P}</td><td class="n">${r.A}</td><td class="n">${n0(r.Q)}</td><td class="n">${omr(r.prodDed)}</td><td class="n">${omr(r.ded+r.absDed)}</td><td class="n">${omr(r.net)}</td><td>${r.paid?"مدفوع":(m<month(t)?"غير مدفوع":"جارٍ")}</td><td class="n">${r.paid?omr(r.paidAmount):""}</td><td>${esc(r.paidDate||"")}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="n">${omr(sum(rows,x=>x.w.salary))}</td><td class="n">${sum(rows,x=>x.r.P)}</td><td class="n">${sum(rows,x=>x.r.A)}</td><td class="n">${n0(sum(rows,x=>x.r.Q))}</td><td class="n">${omr(sum(rows,x=>x.r.prodDed))}</td><td class="n">${omr(sum(rows,x=>x.r.ded+x.r.absDed))}</td><td class="n">${omr(sum(rows,x=>x.r.net))}</td><td></td><td class="n">${omr(sum(rows.filter(x=>x.r.paid),x=>x.r.paidAmount))}</td><td></td></tr></tfoot></table>`; }).join("")}
+  ${sec("د","ملخص الحضور الشهري")}<table><thead><tr><th>العامل</th>${months.map(m=>`<th class="n">${m} حضور</th><th class="n">غياب</th><th class="n">إجازة</th>`).join("")}</tr></thead><tbody>${activeWorkers().map(w=>`<tr><td>${esc(w.name)}</td>${months.map(m=>{ const a=monthAtt(m,w.id); return `<td class="n">${a.P}</td><td class="n">${a.A}</td><td class="n">${a.L}</td>`; }).join("")}</tr>`).join("")}</tbody></table>
+  ${sec("هـ","سجل الإنتاج")}<table><thead><tr><th>التاريخ</th><th>الموقع</th><th>البند</th><th class="n">م²</th><th class="n">القيمة</th><th>المصدر</th><th>سجّله</th></tr></thead><tbody>${S.progress.filter(p=>Number(p.qty)).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map(p=>`<tr><td>${esc(p.date)}</td><td>${esc(p.location||"")}</td><td>${esc(actMap()[p.act]?.name||p.act)}</td><td class="n">${n0(p.qty)}</td><td class="n">${omr(valOf(p))}</td><td>${p.fromAtt?"حضور: "+esc(wn[p.wid]||""):"إدخال مباشر"}</td><td>${esc(p.by||"")}</td></tr>`).join("")||`<tr><td colspan="7">لا يوجد</td></tr>`}</tbody><tfoot><tr><td colspan="3">الإجمالي</td><td class="n">${n0(sum(S.progress,p=>p.qty))}</td><td class="n">${omr(sum(S.progress,valOf))}</td><td colspan="2"></td></tr></tfoot></table>
+   <h3>أعمال منفذة قبل تشغيل النظام</h3><table><thead><tr><th>الموقع</th><th>البند</th><th class="n">م²</th><th class="n">القيمة</th><th>الفوترة</th></tr></thead><tbody>${S.opening.map(o=>`<tr><td>${esc(o.location||"")}</td><td>${esc(actMap()[o.act]?.name||o.act)}</td><td class="n">${n0(o.qty)}</td><td class="n">${omr(valOf(o))}</td><td>${o.billed?"مفوتر":"غير مفوتر"}</td></tr>`).join("")||`<tr><td colspan="5">لا يوجد</td></tr>`}</tbody></table>
+  ${sec("و","خصم وجبات بهوان")}<p class="muted">${omr(food().rate)} ر.ع لكل عامل يومياً (3 وجبات) منذ ${food().start} · الأساس: ${food().basis==="present"?"العمال الحاضرون":"كل العمال على رأس العمل"}</p><table><thead><tr><th>الشهر</th><th class="n">يوم-عامل</th><th class="n">الوجبات</th><th class="n">المبلغ</th></tr></thead><tbody>${months.map(m=>{ let n=0; eachDay(m+"-01",`${m}-${String(daysIn(m)).padStart(2,"0")}`,dd=>n+=foodCount(dd)); return n?`<tr><td>${m}</td><td class="n">${n}</td><td class="n">${n*3}</td><td class="n">${omr(foodMonth(m))}</td></tr>`:""; }).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td></td><td></td><td class="n">${omr(fd)}</td></tr></tfoot></table>
+  ${sec("ز","السلف والخصومات")}<table><thead><tr><th>التاريخ</th><th>العامل</th><th>النوع</th><th>السبب</th><th class="n">المبلغ</th><th>سجّله</th></tr></thead><tbody>${S.deductions.slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")).map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(wn[x.wid]||"")}</td><td>${esc(x.type||"")}</td><td>${esc(x.reason||"")}</td><td class="n">${omr(x.amount)}</td><td>${esc(x.by||"")}</td></tr>`).join("")||`<tr><td colspan="6">لا يوجد</td></tr>`}</tbody></table>
+  ${sec("ح","سجل الأصول – المعدات")}<table><thead><tr><th>المعدة</th><th>الرقم</th><th>الملكية</th><th class="n">سعر الشراء</th><th>تاريخ الشراء</th><th class="n">العمر (سنة)</th><th class="n">القيمة الدفترية</th><th>شهادة الفحص</th></tr></thead><tbody>${S.equipment.map(e=>`<tr><td>${esc(e.name)}</td><td>${esc(e.code||"")}</td><td>${esc(e.own||"")}</td><td class="n">${e.price?omr(e.price):"—"}</td><td>${esc(e.buyDate||"")}</td><td class="n">${e.life||""}</td><td class="n">${e.price&&e.own!=="مستأجرة"?omr(eqBook(e)):"—"}</td><td>${esc(e.exp||"—")}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">الإجمالي</td><td class="n">${omr(A.cost)}</td><td colspan="2"></td><td class="n">${omr(A.book)}</td><td></td></tr></tfoot></table>
+  ${sec("ط","مقاولو الباطن")}<table><thead><tr><th>المقاول</th><th>التخصص</th><th class="n">قيمة الأعمال</th><th class="n">المدفوع</th><th class="n">الرصيد</th></tr></thead><tbody>${S.subs.map(x=>{ const w=sum(S.subWork.filter(z=>z.subId===x.id),z=>(Number(z.qty)||0)*(Number(z.rate)||0)), p=sum(S.subPay.filter(z=>z.subId===x.id),z=>z.amount); return `<tr><td>${esc(x.name)}</td><td>${esc(x.trade||"")}</td><td class="n">${omr(w)}</td><td class="n">${omr(p)}</td><td class="n">${omr(w-p)}</td></tr>`; }).join("")||`<tr><td colspan="5">لا يوجد</td></tr>`}</tbody></table>
+  ${sec("ي","المشاكل والتأخير")}<table><thead><tr><th>التاريخ</th><th>المشكلة</th><th class="n">أيام ضائعة</th><th>الحالة</th></tr></thead><tbody>${S.issues.map(i=>`<tr><td>${esc(i.date)}</td><td>${esc(i.text)}</td><td class="n">${i.days?n0(i.days):""}</td><td>${i.status==="closed"?"مغلقة":"مفتوحة"}</td></tr>`).join("")||`<tr><td colspan="4">لا يوجد</td></tr>`}</tbody></table>
+  ${sec("ك","ملاحظات على البيانات وسجل المراجعة")}<ul class="muted"><li>مصدر البيانات: Google Sheet «Almasara - Yiti Plaza App» – ورقة لكل سجل، ولكل قيد عمود updatedAt واسم من سجّله.</li><li>الدخول للنظام برقم شخصي بصلاحيتين: مدير (كامل) ومشرف (حضور وإنتاج ومعدات فقط). التعديل والحذف للمدير فقط.</li><li>الرواتب المستحقة محسوبة من الحضور اليومي: اليومية = الراتب ÷ ${st().payDays||30}${st().deductAbsence?"، وأيام الغياب مخصومة":"، وأيام الغياب غير مخصومة"}، مع خصم الإنتاجية عند عدم تحقيق الهدف اليومي.</li><li>خصم الوجبات محسوب آلياً وليس من فواتير بهوان؛ يجب مطابقته مع كشوف خصم بهوان الفعلية.</li><li>قيمة الإنتاج محسوبة بأسعار البنود في النظام وتخضع لإعادة القياس المعتمد من بهوان.</li></ul>
+  <div class="foot"><span>أعدّه: ............</span><span>راجعه: ............</span><span>اعتمده: ............</span></div>`;
+  return ["حزمة المراجعة الخارجية "+t, body];
+}
 
 function vDash(){
   const t=today(), y=addDays(t,-1), ws=weekStart(t), m=month(t);
@@ -1280,6 +1481,8 @@ function buildPrint(kind, arg){
     return ["جدول الحضور "+mm, `<style>@page{size:A4 landscape;margin:8mm}th,td{padding:2pt 3pt;font-size:8pt;text-align:center}</style>${rptHead("جدول الحضور الشهري","شهر "+mm+" · ح = حاضر، غ = غائب، ج = إجازة")}<table><thead><tr><th>العامل</th>${ds.map(d=>`<th>${Number(d.slice(8))}</th>`).join("")}<th>ح</th><th>غ</th><th>ج</th></tr></thead><tbody>${activeWorkers().map(w=>{const a=monthAtt(mm,w.id);return `<tr><td style="text-align:right;white-space:nowrap">${esc(w.name)}</td>${ds.map(d=>{const s=(attRec(d)[w.id]||{}).s;return `<td>${s==="P"?"ح":s==="A"?"غ":s==="L"?"ج":""}</td>`}).join("")}<td>${a.P}</td><td>${a.A}</td><td>${a.L}</td></tr>`}).join("")}</tbody></table>`];
   }
   if(kind==="daily") return buildDaily(drDate);
+  if(kind==="audit") return buildAuditPrint();
+  if(kind==="extaudit") return buildExtAudit();
   if(kind==="summary") return buildSummary();
   if(kind==="cmp"){
     const rows=cmpRows(cmpMonth); if(!rows.length) return null; const T=k=>sum(rows,r=>r[k]);
@@ -1509,7 +1712,7 @@ async function login(pin){
   PIN=String(pin||"").trim(); $("#l-err").textContent=tr("جارٍ الدخول…");
   try{ gsApply(await gsCall("apiGetAll")); try{ localStorage.setItem("ms-pin",PIN); }catch(e){}
     $("#login").hidden=true; $("#l-err").textContent="";
-    if(window.ME.role!=="manager" && ["dash","fin","bill","subs","adv"].includes(tab)) tab="site"; render(); }
+    if(window.ME.role!=="manager" && ["dash","fin","bill","subs","adv","audit"].includes(tab)) tab="site"; render(); }
   catch(e){ PIN=null; $("#login").hidden=false; $("#l-err").textContent=(e&&e.message)||tr("تعذّر الدخول"); }
 }
 db=shimDb; user=null; downloads=null; sampler=null;
