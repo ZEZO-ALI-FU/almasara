@@ -118,6 +118,26 @@ table.ag .ag-name{position:sticky;inset-inline-start:0;background:var(--card,var
 .panel{min-width:0;max-width:100%}
 details{max-width:100%;min-width:0}
 details>.tbl{max-width:100%;overflow-x:auto}
+.hero{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 20px;margin-bottom:12px;border-radius:18px;color:#fff;background:linear-gradient(120deg,#1F5FA8 0%,#2E86C1 55%,#17A589 100%);box-shadow:0 10px 30px rgba(31,95,168,.25);position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;inset:-40% -10% auto auto;width:260px;height:260px;border-radius:50%;background:rgba(255,255,255,.08);animation:float 9s ease-in-out infinite}
+@keyframes float{50%{transform:translate(-30px,30px) scale(1.08)}}
+.hero-g{font-size:1.25rem;font-weight:700}.hero-d{opacity:.85;font-size:.85rem;margin-top:2px}
+.hero-s{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:.85rem}.hero-s b{font-size:1.05rem}
+.ring{position:relative;flex:0 0 auto}.ring svg{transform:rotate(-90deg)}.ring-bg{fill:none;stroke:rgba(255,255,255,.22);stroke-width:9}.ring-fg{fill:none;stroke:#fff;stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset 1.3s cubic-bezier(.2,.8,.2,1)}
+.ring-v{position:absolute;inset:0;display:grid;place-content:center;text-align:center;line-height:1.1}.ring-v b{font-size:1.2rem}.ring-v span{font-size:.7rem;opacity:.85}
+.anim{opacity:1}.anim.in{animation:fadeUp .55s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*55ms)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.kpi.kd{cursor:pointer;transition:transform .18s,box-shadow .18s,border-color .18s;position:relative;border-top:3px solid transparent;background-image:linear-gradient(var(--card,var(--bg)),var(--card,var(--bg)))}
+.kpi.kd:hover{transform:translateY(-3px);box-shadow:0 8px 22px rgba(0,0,0,.08);border-top-color:#2E86C1}
+.kpi.kd:after{content:"تفاصيل ←";position:absolute;inset-inline-end:10px;top:8px;font-size:.65rem;color:var(--muted);opacity:.0;transition:opacity .2s}.kpi.kd:hover:after{opacity:1}
+.kd-card{width:min(900px,100%);max-height:88vh;overflow:auto}
+.ai-btn{background:linear-gradient(90deg,#8E44AD,#2E86C1);border:0;color:#fff}
+.team{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0}
+.tm{display:grid;gap:2px;text-align:start;padding:10px;border:1px solid var(--line);border-radius:12px;background:transparent;color:inherit;cursor:pointer;transition:transform .15s,border-color .15s}
+.tm:hover{transform:translateY(-2px)}.tm.on{border-color:#2E86C1;box-shadow:0 0 0 2px rgba(46,134,193,.25)}.tm-i{font-size:1.3rem}.tm small{color:var(--muted);font-size:.72rem}
+.md h3{margin:12px 0 4px;color:#2E86C1}.md li{margin:3px 18px}.md li.ol{list-style:none;margin-inline-start:0}.md p{margin:4px 0}.md .mdt{font-family:monospace;font-size:.8rem;white-space:pre-wrap}
+.wd summary{cursor:pointer}.wd[open]{min-width:240px}
+.credit{text-align:center;font-size:.78rem;color:var(--muted);padding:18px 12px 28px}.credit a{color:inherit}
 .lm-wrap{max-height:70vh}
 table.lm{width:auto;border-collapse:separate;border-spacing:0}
 table.lm th,table.lm td{padding:2px 3px;text-align:center;border-bottom:1px solid var(--sunk)}
@@ -198,7 +218,7 @@ body.role-site .mgr{display:none!important}
       <button role="tab" data-t="eq">المعدات</button>
       <button class="mgr" role="tab" data-t="bill">الفواتير</button>
       <button class="mgr" role="tab" data-t="subs">مقاولو الباطن</button>
-      <button class="mgr" role="tab" data-t="adv">المستشار المالي</button>
+      <button class="mgr" role="tab" data-t="adv">فريق الإدارة</button>
       <button class="mgr" role="tab" data-t="audit">المراجعة</button>
     </nav>
   </div>
@@ -206,9 +226,11 @@ body.role-site .mgr{display:none!important}
 </header>
 
 <main class="wrap" id="app"></main>
+<footer class="credit">تطوير وإدارة النظام: <b>أحمد عبد العزيز</b> · <a href="tel:+96895258470" dir="ltr">95258470</a></footer>
 <div class="toast" id="toast" hidden></div>
-<div id="login" class="login" hidden><form id="f-login" class="panel"><h2>مصطفى المسارة – يتي بلازا</h2><label><span>رقم PIN</span><input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password" required></label><button class="btn" type="submit">دخول</button><p class="note" id="l-err"></p></form></div>
+<div id="login" class="login" hidden><form id="f-login" class="panel"><h2>مصطفى المسارة – يتي بلازا</h2><label><span>رقم PIN</span><input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password" required></label><button class="btn" type="submit">دخول</button><p class="note" id="l-err"></p><p class="note" style="text-align:center">تطوير وإدارة النظام: أحمد عبد العزيز · 95258470</p></form></div>
 <div id="edit-dlg" class="dlg" hidden></div>
+<div id="kd-dlg" class="dlg" hidden></div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -246,7 +268,7 @@ const INV_ST = [["prep","قيد التحضير"],["sub","مقدّم لبهوان
 const EQ_ST = [["ok","يعمل","ok"],["maint","تحت الصيانة","mt"],["down","لا يعمل","dn"]];
 const ATT_ST = [["P","حاضر"],["A","غائب"],["L","إجازة"]];
 
-const S = { opening:[], settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), expenses:[], workers:[], attendance:{}, deductions:[], payroll:{}, progress:[], materials:[], issues:[], invoices:[], checklist:[], equipment:[], equipLog:{}, subs:[], subWork:[], subPay:[], voice:[], locations:[], locstat:{}, plan:[], insp:[], snags:[], matreq:[], photos:[] };
+const S = { opening:[], settings:JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), expenses:[], workers:[], attendance:{}, deductions:[], payroll:{}, progress:[], materials:[], issues:[], invoices:[], checklist:[], equipment:[], equipLog:{}, subs:[], subWork:[], subPay:[], voice:[], locations:[], locstat:{}, plan:[], insp:[], snags:[], matreq:[], photos:[], advice:[] };
 let db=null, user=null, downloads=null, sampler=null, me=null, tab="dash", ready=false, names={};
 let attDate=today(), payMonth=month(today()), finMonth=month(today()), eqDate=today(), invFrom="", invTo=today(), subSel="";
 let advAnswer="", advBusy=false, advCtl=null;
@@ -292,12 +314,23 @@ function prodCut(w, r){ if(!r||r.s!=="P"||!w.target||r.qty===undefined||r.qty===
 const activeWorkers = () => workers().filter(w=>w.active!==false);
 function attRec(date){ const a=S.attendance[date]; if(!a) return {}; if(a.rec) return a.rec; const r={}; Object.entries(a.present||{}).forEach(([k,v])=>{ if(v) r[k]={s:"P",in:"07:00",out:"18:00"}; }); return r; }
 function monthAtt(m, wid){ let P=0,A=0,L=0,H=0,Q=0,PD=0,short=0; const w=workers().find(x=>x.id===wid)||{salary:0,target:0}; Object.keys(S.attendance).filter(d=>month(d)===m).forEach(d=>{ const r=attRec(d)[wid]; if(!r) return; if(r.s==="P"){P++;H+=hrs(r.in,r.out); const c=prodCut(w,r); if(c){ Q+=c.q; PD+=c.ded; if(c.pct<1) short++; } } else if(r.s==="A")A++; else if(r.s==="L")L++; }); return {P,A,L,H,Q,prodDed:PD,short}; }
+/* قاعدة الرواتب: الشهر = عدد أيامه، الجمعة إجازة مدفوعة، العمل يوم الجمعة = أجر إضافي، الغياب غير مدفوع */
+const isFri=d=>new Date(d+"T12:00:00").getDay()===5;
+const empFrom=w=>w.start||projStart();
+const dWage=(w,d)=>(Number(w.salary)||0)/daysIn(month(d));
+const otRate=()=>{ const v=Number(st().otRate); return isNaN(v)||st().otRate===undefined||st().otRate===""?1:v; };
+function wDay(w,d){ const r=attRec(d)[w.id]; const s=r&&r.s; if(d<empFrom(w)||d>today()||(w.end&&d>w.end)) return {paid:0,ot:0,s:s||"",pd:0};
+  const c=s==="P"?prodCut(w,r):null; const pd=c?c.ded:0;
+  if(isFri(d)){ if(s==="A") return {paid:0,ot:0,s,pd:0}; return {paid:1,ot:s==="P"?1:0,s:s||"F",pd}; }
+  if(s==="P") return {paid:1,ot:0,s,pd};
+  if(s==="L"&&st().leavePaid) return {paid:1,ot:0,s,pd:0};
+  return {paid:0,ot:0,s:s||"",pd:0}; }
 function payRow(m, w){
   const a=monthAtt(m,w.id); const ded=sum(S.deductions.filter(d=>d.wid===w.id&&month(d.date)===m),d=>d.amount);
-  const absDed = st().deductAbsence ? dayWage(w)*a.A : 0;
-  const tded = ded + absDed + a.prodDed;
-  const net = Math.max(0, w.salary - tded); const pr=S.payroll[m+"_"+w.id]||{};
-  return {...a, ded, absDed, tded, net, paid:!!pr.paid, paidDate:pr.paidDate||"", paidAmount:Number(pr.paidAmount)||0};
+  let F=0, OT=0, paidDays=0, gross=0, otPay=0, prodDed=0; const nd=daysIn(m);
+  for(let i=1;i<=nd;i++){ const d=`${m}-${String(i).padStart(2,"0")}`; const x=wDay(w,d); if(x.paid){ paidDays++; gross+=dWage(w,d); if(isFri(d)&&x.s!=="P") F++; } if(x.ot){ OT++; otPay+=dWage(w,d)*otRate(); } prodDed+=x.pd; }
+  gross=Math.min(gross,w.salary); const tded=ded+prodDed; const net=Math.max(0,gross+otPay-tded); const pr=S.payroll[m+"_"+w.id]||{};
+  return {...a, prodDed, F, OT, paidDays, gross, otPay, ded, absDed:0, tded, net, paid:!!pr.paid, paidDate:pr.paidDate||"", paidAmount:Number(pr.paidAmount)||0};
 }
 function eqAge(e){ const d=e.buyDate||e.createdAt||today(); return Math.max(0,(new Date(today())-new Date(String(d).slice(0,10)))/864e5/365); }
 function eqBook(e){ const p=Number(e.price)||0, life=Number(e.life)||3; return Math.max(0,p*(1-eqAge(e)/life)); }
@@ -329,7 +362,7 @@ function render(){
   document.querySelectorAll("#tabs button").forEach(b=>b.setAttribute("aria-selected", b.dataset.t===tab));
   const views={prev:vPrev,dash:vDash,fin:vFin,hr:vHr,site:vSite,loc:vLoc,plan:vPlan,eq:vEq,bill:vBill,subs:vSubs,adv:vAdv,audit:vAudit};
   $("#app").innerHTML = tr((views[tab]||vDash)());
-  resolveNames();
+  resolveNames(); try{ dashAnim(); }catch(e){}
 }
 function by(n){ return n ? `<span class="ref">${esc(n)}</span>` : ""; }
 async function resolveNames(){
@@ -384,11 +417,9 @@ const foodMonth=m=>foodRange(m+"-01",`${m}-${String(daysIn(m)).padStart(2,"0")}`
 const foodTotal=()=>foodRange(food().start,today());
 
 /* ---------- تكلفة اليوم مقابل إنتاج اليوم ---------- */
-function laborOn(d){ const r=attRec(d); let s=0, n=0;
-  activeWorkers().forEach(w=>{ const x=r[w.id]; const dw=dayWage(w); const ex=(w.extra||0)/(Number(st().payDays)||30);
-    if(!x||!x.s) return; s+=ex;
-    if(x.s==="P"){ n++; const c=prodCut(w,x); s+=dw-(c?c.ded:0); }
-    else if(!st().deductAbsence) s+=dw; });
+function laborOn(d){ let s=0, n=0;
+  activeWorkers().forEach(w=>{ if(d<empFrom(w)) return; const x=wDay(w,d); const dw=dWage(w,d); s+=(w.extra||0)/daysIn(month(d)); if(x.s==="P") n++;
+    s+=x.paid*dw+x.ot*dw*otRate()-x.pd; });
   return {cost:s,n}; }
 function expOn(d){ const m=month(d);
   const direct=sum(S.expenses.filter(e=>e.date===d&&e.freq!=="monthly"),e=>e.amount);
@@ -521,16 +552,15 @@ let smDate=today(), smFrom="month";
 function smRange(){ const to=smDate>today()?today():smDate; const from=smFrom==="project"?projStart():month(to)+"-01"; return {from:from>to?to:from,to}; }
 function eachDay(a,b,fn){ let d=a; let g=0; while(d<=b&&g++<1000){ fn(d); d=addDays(d,1); } }
 function wageAccrual(from,to){
-  const pd=Number(st().payDays)||30, absDed=!!st().deductAbsence;
-  const rows=activeWorkers().map(w=>{ const dw=dayWage(w), ex=(w.extra||0)/pd; let P=0,A=0,L=0,gross=0,prod=0,absC=0,extra=0,Q=0;
-    eachDay(from,to,d=>{ const r=attRec(d)[w.id]; if(!r||!r.s) return; extra+=ex;
-      if(r.s==="P"){ P++; gross+=dw; const c=prodCut(w,r); if(c){ prod+=c.ded; Q+=c.q; } }
-      else { if(r.s==="A") A++; else L++; if(absDed){ if(r.s==="A") absC+=0; } else gross+=dw; } });
-    const adv=sum(S.deductions.filter(x=>x.wid===w.id&&x.date>=from&&x.date<=to),x=>x.amount);
+  const rows=activeWorkers().map(w=>{ const dw=dayWage(w); let P=0,A=0,L=0,F=0,OT=0,gross=0,otPay=0,prod=0,extra=0,Q=0; const pdl=[];
+    eachDay(from,to,d=>{ if(d<empFrom(w)||d>today()) return; const x=wDay(w,d); const r=attRec(d)[w.id]||{}; extra+=(w.extra||0)/daysIn(month(d));
+      if(x.s==="P"){ P++; const c=prodCut(w,r); if(c){ Q+=c.q; if(c.ded>0) pdl.push({d,q:c.q,t:w.target,a:c.ded}); } } else if(x.s==="A") A++; else if(x.s==="L") L++; else if(x.s==="F") F++;
+      gross+=x.paid*dWage(w,d); if(x.ot){ OT++; otPay+=dWage(w,d)*otRate(); } prod+=x.pd; });
+    const advl=S.deductions.filter(x=>x.wid===w.id&&x.date>=from&&x.date<=to).sort((a,b)=>(a.date||"").localeCompare(b.date||"")); const adv=sum(advl,x=>x.amount);
     const months=new Set(); eachDay(from,to,d=>months.add(month(d)));
     const paid=sum([...months].map(m=>S.payroll[m+"_"+w.id]).filter(p=>p&&p.paid),p=>p.paidAmount);
-    const due=Math.max(0,gross+extra-prod-adv);
-    return {w,dw,P,A,L,Q,gross,extra,prod,adv,due,paid,rem:due-paid}; });
+    const due=Math.max(0,gross+otPay+extra-prod-adv);
+    return {w,dw,P,A,L,F,OT,Q,gross,otPay,extra,prod,adv,advl,pdl,due,paid,rem:due-paid}; });
   return rows;
 }
 function smData(){
@@ -560,10 +590,10 @@ function vSummary(){
       <div class="kpi"><span class="l">إجمالي التكلفة</span><span class="v">${omr(D.cost)}</span><span class="n">مرتبات + منصرفات + أكل${D.sub?" + مقاولو باطن":""}</span></div>
       <div class="kpi"><span class="l">الإنتاج − التكلفة</span><span class="v">${nb(D.prod-D.cost)}</span><span class="n">${D.prod?`التكلفة = ${n0(D.cost/D.prod*100)}% من الإنتاج`:""}</span></div>
     </div>
-    <details open><summary>مرتبات العمال حتى ${D.to}</summary><div class="tbl"><table><thead><tr><th>العامل</th><th class="num">حضور</th><th class="num">غياب</th><th class="num">اليومية</th><th class="num">المستحق</th><th class="num">خصم الإنتاجية</th><th class="num">سلف وخصومات</th><th class="num">الصافي المستحق</th><th class="num">المصروف</th><th class="num">المتبقي</th></tr></thead><tbody>${D.W.map(r=>`<tr><td>${esc(r.w.name)}</td><td class="num">${r.P}</td><td class="num">${r.A}</td><td class="num">${omr(r.dw)}</td><td class="num">${omr(r.gross+r.extra)}</td><td class="num ${r.prod?"neg":""}">${omr(r.prod)}</td><td class="num ${r.adv?"neg":""}">${omr(r.adv)}</td><td class="num"><b>${omr(r.due)}</b></td><td class="num">${omr(r.paid)}</td><td class="num">${omr(r.rem)}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="num">${sum(D.W,r=>r.P)}</td><td class="num">${sum(D.W,r=>r.A)}</td><td></td><td class="num">${omr(sum(D.W,r=>r.gross+r.extra))}</td><td class="num">${omr(sum(D.W,r=>r.prod))}</td><td class="num">${omr(sum(D.W,r=>r.adv))}</td><td class="num">${omr(D.wages)}</td><td class="num">${omr(D.paid)}</td><td class="num">${omr(D.wages-D.paid)}</td></tr></tfoot></table></div></details>
+    <details open><summary>مرتبات العمال حتى ${D.to}</summary><div class="tbl"><table><thead><tr><th>العامل</th><th class="num">حضور</th><th class="num">جمعة</th><th class="num">غياب</th><th class="num">المستحق</th><th class="num">إضافي الجمعة</th><th class="num">خصم الإنتاجية</th><th class="num">سلف وخصومات</th><th class="num">الصافي المستحق</th><th class="num">المصروف</th><th class="num">المتبقي</th></tr></thead><tbody>${D.W.map(r=>`<tr><td>${r.advl.length||r.pdl.length?`<details class="wd"><summary>${esc(r.w.name)}</summary>${r.advl.length?`<div class="ref"><b>السلف والخصومات:</b></div><ul class="au-f">${r.advl.map(x=>`<li>${esc(x.date)} – ${esc(x.type||"")} – ${omr(x.amount)} ر.ع${x.reason?` – ${esc(x.reason)}`:""}</li>`).join("")}</ul>`:""}${r.pdl.length?`<div class="ref"><b>خصم الإنتاجية:</b></div><ul class="au-f">${r.pdl.map(x=>`<li>${esc(x.d)} – أنجز ${n0(x.q)} من ${n0(x.t)} م² – ${omr(x.a)} ر.ع</li>`).join("")}</ul>`:""}</details>`:esc(r.w.name)}</td><td class="num">${r.P}</td><td class="num">${r.F}</td><td class="num ${r.A?"neg":""}">${r.A}</td><td class="num">${omr(r.gross+r.extra)}</td><td class="num">${r.OT?omr(r.otPay):"0.000"}</td><td class="num ${r.prod?"neg":""}">${omr(r.prod)}</td><td class="num ${r.adv?"neg":""}">${omr(r.adv)}</td><td class="num"><b>${omr(r.due)}</b></td><td class="num">${omr(r.paid)}</td><td class="num">${omr(r.rem)}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="num">${sum(D.W,r=>r.P)}</td><td class="num">${sum(D.W,r=>r.F)}</td><td class="num">${sum(D.W,r=>r.A)}</td><td class="num">${omr(sum(D.W,r=>r.gross+r.extra))}</td><td class="num">${omr(sum(D.W,r=>r.otPay))}</td><td class="num">${omr(sum(D.W,r=>r.prod))}</td><td class="num">${omr(sum(D.W,r=>r.adv))}</td><td class="num">${omr(D.wages)}</td><td class="num">${omr(D.paid)}</td><td class="num">${omr(D.wages-D.paid)}</td></tr></tfoot></table></div></details>
     <details><summary>المنصرفات حسب البند</summary>${Object.keys(D.cats).length?`<div class="tbl"><table><tbody>${Object.entries(D.cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${omr(v)}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="num">${omr(D.expT)}</td></tr></tfoot></table></div>`:`<p class="note">لا مصروفات في هذه الفترة.</p>`}</details>
     <details><summary>الإنتاج حسب البند</summary><div class="tbl"><table><thead><tr><th>البند</th><th class="num">م²</th><th class="num">القيمة</th></tr></thead><tbody>${acts().filter(a=>D.byAct[a.key].q).map(a=>`<tr><td>${esc(a.name)}</td><td class="num">${n0(D.byAct[a.key].q)}</td><td class="num">${omr(D.byAct[a.key].v)}</td></tr>`).join("")||`<tr><td colspan="3">لا إنتاج مسجّل</td></tr>`}</tbody><tfoot><tr><td>الإجمالي</td><td class="num">${n0(D.q)}</td><td class="num">${omr(D.prod)}</td></tr></tfoot></table></div></details>
-    <p class="note">المرتب المستحق = يومية العامل (الراتب ÷ ${Number(st().payDays)||30}) × أيام الحضور${st().deductAbsence?"":" + أيام الغياب والإجازة (لأن خصم الغياب غير مفعّل)"} + البدلات، ناقص خصم الإنتاجية والسلف المسجلة في الفترة.</p>
+    <p class="note">المرتب المستحق = الراتب ÷ أيام الشهر × (أيام الحضور + أيام الجمعة المدفوعة${st().leavePaid?" + الإجازات":""}) + أجر العمل يوم الجمعة (× ${otRate()}) + البدلات، ناقص خصم الإنتاجية والسلف والخصومات. الغياب غير مدفوع، والحساب حتى التاريخ المحدد فقط.</p>
   </section>`;
 }
 function buildSummary(){
@@ -575,7 +605,8 @@ function buildSummary(){
    <tr><td><b>الإنتاج − التكلفة</b></td><td class="n" style="color:${D.prod-D.cost>=0?"#1E8E5A":"#C0392B"}"><b>${omr(D.prod-D.cost)}</b></td></tr></tbody></table></div>
   <div><h2>المنصرفات حسب البند</h2><table><tbody>${Object.entries(D.cats).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${omr(v)}</td></tr>`).join("")||`<tr><td>لا يوجد</td><td></td></tr>`}</tbody></table>
   <h2>الإنتاج حسب البند</h2><table><tbody>${acts().filter(a=>D.byAct[a.key].q).map(a=>`<tr><td>${esc(a.name)}</td><td class="n">${n0(D.byAct[a.key].q)} م²</td><td class="n">${omr(D.byAct[a.key].v)}</td></tr>`).join("")||`<tr><td>لا يوجد</td><td></td><td></td></tr>`}</tbody></table></div></div>
-  <h2>مرتبات العمال حتى ${D.to}</h2><table><thead><tr><th>#</th><th>العامل</th><th class="n">حضور</th><th class="n">غياب</th><th class="n">إجازة</th><th class="n">اليومية</th><th class="n">المستحق</th><th class="n">خصم الإنتاجية</th><th class="n">سلف وخصومات</th><th class="n">الصافي المستحق</th><th class="n">المصروف</th><th class="n">المتبقي</th></tr></thead><tbody>${D.W.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.w.name)}</td><td class="n">${r.P}</td><td class="n">${r.A}</td><td class="n">${r.L}</td><td class="n">${omr(r.dw)}</td><td class="n">${omr(r.gross+r.extra)}</td><td class="n">${omr(r.prod)}</td><td class="n">${omr(r.adv)}</td><td class="n"><b>${omr(r.due)}</b></td><td class="n">${omr(r.paid)}</td><td class="n">${omr(r.rem)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="2">الإجمالي</td><td class="n">${sum(D.W,r=>r.P)}</td><td class="n">${sum(D.W,r=>r.A)}</td><td class="n">${sum(D.W,r=>r.L)}</td><td></td><td class="n">${omr(sum(D.W,r=>r.gross+r.extra))}</td><td class="n">${omr(sum(D.W,r=>r.prod))}</td><td class="n">${omr(sum(D.W,r=>r.adv))}</td><td class="n">${omr(D.wages)}</td><td class="n">${omr(D.paid)}</td><td class="n">${omr(D.wages-D.paid)}</td></tr></tfoot></table>
+  <h2>مرتبات العمال حتى ${D.to}</h2><table><thead><tr><th>#</th><th>العامل</th><th class="n">حضور</th><th class="n">جمعة</th><th class="n">غياب</th><th class="n">إجازة</th><th class="n">المستحق</th><th class="n">إضافي الجمعة</th><th class="n">خصم الإنتاجية</th><th class="n">سلف وخصومات</th><th class="n">الصافي المستحق</th><th class="n">المصروف</th><th class="n">المتبقي</th></tr></thead><tbody>${D.W.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.w.name)}</td><td class="n">${r.P}</td><td class="n">${r.F}</td><td class="n">${r.A}</td><td class="n">${r.L}</td><td class="n">${omr(r.gross+r.extra)}</td><td class="n">${omr(r.otPay)}</td><td class="n">${omr(r.prod)}</td><td class="n">${omr(r.adv)}</td><td class="n"><b>${omr(r.due)}</b></td><td class="n">${omr(r.paid)}</td><td class="n">${omr(r.rem)}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="2">الإجمالي</td><td class="n">${sum(D.W,r=>r.P)}</td><td class="n">${sum(D.W,r=>r.F)}</td><td class="n">${sum(D.W,r=>r.A)}</td><td class="n">${sum(D.W,r=>r.L)}</td><td class="n">${omr(sum(D.W,r=>r.gross+r.extra))}</td><td class="n">${omr(sum(D.W,r=>r.otPay))}</td><td class="n">${omr(sum(D.W,r=>r.prod))}</td><td class="n">${omr(sum(D.W,r=>r.adv))}</td><td class="n">${omr(D.wages)}</td><td class="n">${omr(D.paid)}</td><td class="n">${omr(D.wages-D.paid)}</td></tr></tfoot></table>
+  ${(()=>{ const L=D.W.flatMap(r=>r.advl.map(x=>({...x,n:r.w.name}))).sort((a,b)=>(a.date||"").localeCompare(b.date||"")); const P=D.W.flatMap(r=>r.pdl.map(x=>({...x,n:r.w.name}))).sort((a,b)=>a.d.localeCompare(b.d)); return (L.length?`<h2>تفاصيل السلف والخصومات</h2><table><thead><tr><th>التاريخ</th><th>العامل</th><th>النوع</th><th>السبب</th><th class="n">المبلغ</th></tr></thead><tbody>${L.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.n)}</td><td>${esc(x.type||"")}</td><td>${esc(x.reason||"")}</td><td class="n">${omr(x.amount)}</td></tr>`).join("")}</tbody></table>`:"")+(P.length?`<h2>تفاصيل خصم الإنتاجية</h2><table><thead><tr><th>التاريخ</th><th>العامل</th><th class="n">المنجز م²</th><th class="n">الهدف</th><th class="n">الخصم</th></tr></thead><tbody>${P.map(x=>`<tr><td>${x.d}</td><td>${esc(x.n)}</td><td class="n">${n0(x.q)}</td><td class="n">${n0(x.t)}</td><td class="n">${omr(x.a)}</td></tr>`).join("")}</tbody></table>`:""); })()}
   <div class="foot"><span>المحاسب: ............</span><span>المدير: ............</span></div>`];
 }
 document.addEventListener("change",ev=>{ const t=ev.target; if(t.id==="sm-date"){ ev.stopImmediatePropagation(); smDate=t.value||today(); render(); } else if(t.id==="sm-from"){ ev.stopImmediatePropagation(); smFrom=t.value; render(); } },true);
@@ -784,7 +815,7 @@ function buildExtAudit(){
   ${sec("ح","سجل الأصول – المعدات")}<table><thead><tr><th>المعدة</th><th>الرقم</th><th>الملكية</th><th class="n">سعر الشراء</th><th>تاريخ الشراء</th><th class="n">العمر (سنة)</th><th class="n">القيمة الدفترية</th><th>شهادة الفحص</th></tr></thead><tbody>${S.equipment.map(e=>`<tr><td>${esc(e.name)}</td><td>${esc(e.code||"")}</td><td>${esc(e.own||"")}</td><td class="n">${e.price?omr(e.price):"—"}</td><td>${esc(e.buyDate||"")}</td><td class="n">${e.life||""}</td><td class="n">${e.price&&e.own!=="مستأجرة"?omr(eqBook(e)):"—"}</td><td>${esc(e.exp||"—")}</td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">الإجمالي</td><td class="n">${omr(A.cost)}</td><td colspan="2"></td><td class="n">${omr(A.book)}</td><td></td></tr></tfoot></table>
   ${sec("ط","مقاولو الباطن")}<table><thead><tr><th>المقاول</th><th>التخصص</th><th class="n">قيمة الأعمال</th><th class="n">المدفوع</th><th class="n">الرصيد</th></tr></thead><tbody>${S.subs.map(x=>{ const w=sum(S.subWork.filter(z=>z.subId===x.id),z=>(Number(z.qty)||0)*(Number(z.rate)||0)), p=sum(S.subPay.filter(z=>z.subId===x.id),z=>z.amount); return `<tr><td>${esc(x.name)}</td><td>${esc(x.trade||"")}</td><td class="n">${omr(w)}</td><td class="n">${omr(p)}</td><td class="n">${omr(w-p)}</td></tr>`; }).join("")||`<tr><td colspan="5">لا يوجد</td></tr>`}</tbody></table>
   ${sec("ي","المشاكل والتأخير")}<table><thead><tr><th>التاريخ</th><th>المشكلة</th><th class="n">أيام ضائعة</th><th>الحالة</th></tr></thead><tbody>${S.issues.map(i=>`<tr><td>${esc(i.date)}</td><td>${esc(i.text)}</td><td class="n">${i.days?n0(i.days):""}</td><td>${i.status==="closed"?"مغلقة":"مفتوحة"}</td></tr>`).join("")||`<tr><td colspan="4">لا يوجد</td></tr>`}</tbody></table>
-  ${sec("ك","ملاحظات على البيانات وسجل المراجعة")}<ul class="muted"><li>مصدر البيانات: Google Sheet «Almasara - Yiti Plaza App» – ورقة لكل سجل، ولكل قيد عمود updatedAt واسم من سجّله.</li><li>الدخول للنظام برقم شخصي بصلاحيتين: مدير (كامل) ومشرف (حضور وإنتاج ومعدات فقط). التعديل والحذف للمدير فقط.</li><li>الرواتب المستحقة محسوبة من الحضور اليومي: اليومية = الراتب ÷ ${st().payDays||30}${st().deductAbsence?"، وأيام الغياب مخصومة":"، وأيام الغياب غير مخصومة"}، مع خصم الإنتاجية عند عدم تحقيق الهدف اليومي.</li><li>خصم الوجبات محسوب آلياً وليس من فواتير بهوان؛ يجب مطابقته مع كشوف خصم بهوان الفعلية.</li><li>قيمة الإنتاج محسوبة بأسعار البنود في النظام وتخضع لإعادة القياس المعتمد من بهوان.</li></ul>
+  ${sec("ك","ملاحظات على البيانات وسجل المراجعة")}<ul class="muted"><li>مصدر البيانات: Google Sheet «Almasara - Yiti Plaza App» – ورقة لكل سجل، ولكل قيد عمود updatedAt واسم من سجّله.</li><li>الدخول للنظام برقم شخصي بصلاحيتين: مدير (كامل) ومشرف (حضور وإنتاج ومعدات فقط). التعديل والحذف للمدير فقط.</li><li>الرواتب المستحقة محسوبة من الحضور اليومي: اليومية = الراتب ÷ أيام الشهر، الجمعة إجازة مدفوعة والعمل فيها أجر إضافي (× ${otRate()})، والغياب غير مدفوع، مع خصم الإنتاجية عند عدم تحقيق الهدف اليومي.</li><li>خصم الوجبات محسوب آلياً وليس من فواتير بهوان؛ يجب مطابقته مع كشوف خصم بهوان الفعلية.</li><li>قيمة الإنتاج محسوبة بأسعار البنود في النظام وتخضع لإعادة القياس المعتمد من بهوان.</li></ul>
   <div class="foot"><span>أعدّه: ............</span><span>راجعه: ............</span><span>اعتمده: ............</span></div>`;
   return ["حزمة المراجعة الخارجية "+t, body];
 }
@@ -971,6 +1002,74 @@ document.addEventListener("submit",async ev=>{ const f=ev.target; const id=f.id;
   if(id==="f-auto"){ const st2=document.getElementById("au-st"); st2.textContent="جارٍ التفعيل…"; try{ AUTO=await gsCall("apiAutoSetup",v("au-mail")); st2.textContent="تم التفعيل ✓ وأُخذت نسخة احتياطية الآن."; render(); }catch(e){ st2.textContent=/permission|إذن|authoriz|ScriptApp|DriveApp|MailApp/i.test(e.message||"")?"يلزم منح الصلاحيات مرة واحدة: افتح محرر Apps Script واضغط Run على authorize ثم Allow.":(e.message||"تعذّر"); } return; }
 },true);
 
+
+/* ---------- تفاصيل بطاقات الرئيسية ---------- */
+function kdOpen(k){ const el=document.getElementById("kd-dlg"); const [title,body]=kdHtml(k); el.innerHTML=`<div class="panel kd-card"><div class="row"><h2>${title}</h2><button class="btn ghost sm" id="kd-x" type="button">إغلاق ✕</button></div>${body}</div>`; el.hidden=false; el.querySelector(".kd-card").scrollTop=0; }
+function kdHtml(k){
+  const t=today(), m=month(t), ws=weekStart(t), wn=Object.fromEntries(workers().map(w=>[w.id,w.name])), am=actMap();
+  const tb=(h,rows,foot)=>`<div class="tbl"><table><thead><tr>${h.map(x=>`<th${/ر\.ع|م²|عدد|أيام|حضور|غياب|جمعة|الصافي|المستحق|المبلغ|القيمة/.test(x)?' class="num"':""}>${x}</th>`).join("")}</tr></thead><tbody>${rows.join("")||`<tr><td colspan="${h.length}">لا يوجد</td></tr>`}</tbody>${foot?`<tfoot>${foot}</tfoot>`:""}</table></div>`;
+  if(k==="spent"){ const cats={}; S.expenses.forEach(e=>cats[e.cat||"أخرى"]=(cats[e.cat||"أخرى"]||0)+(Number(e.amount)||0)); const fd=foodTotal(); if(fd) cats["وجبات العمال (خصم بهوان)"]=fd; const sp=salariesPaidTotal(), sb=subPaidTotal(); if(sp) cats["رواتب مدفوعة"]=sp; if(sb) cats["مقاولو الباطن"]=sb;
+    const mx=Math.max(1,...Object.values(cats)); const L=S.expenses.filter(e=>month(e.date)===m).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+    return ["تفاصيل المنصرفات",`<div class="bars">${Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div class="bar"><span>${esc(c)}</span><div class="track"><div class="fill" style="width:${v/mx*100}%"></div></div><span class="p">${omr(v)}</span></div>`).join("")}</div><p class="note">الإجمالي ${omr(spentTotal())} ر.ع · الرواتب المستحقة غير المدفوعة تظهر في بطاقة الرواتب.</p><h3>مصروفات شهر ${m}</h3>`+tb(["التاريخ","البند","الوصف","دُفع إلى","الإيصال","ر.ع"],L.map(e=>`<tr><td>${esc(e.date)}</td><td>${esc(e.cat)}</td><td>${esc(e.desc||"")}</td><td>${esc(e.to||"")}</td><td>${esc(e.rcpt||"—")}</td><td class="num">${omr(e.amount)}</td></tr>`),`<tr><td colspan="5">الإجمالي</td><td class="num">${omr(sum(L,e=>e.amount))}</td></tr>`)+`<div class="toolbar"><button class="btn ghost sm" data-go="fin">فتح المصروفات</button></div>`]; }
+  if(k==="pay"){ const rows=activeWorkers().map(w=>({w,r:payRow(m,w)}));
+    return ["تفاصيل رواتب "+m,`<p class="note">حتى اليوم: الحضور + الجمعة المدفوعة = الأيام المستحقة. الغياب غير مدفوع، والعمل يوم الجمعة أجر إضافي.</p>`+tb(["العامل","حضور","جمعة","غياب","أيام مستحقة","المستحق","إضافي","الخصومات","الصافي","الحالة"],rows.map(({w,r})=>`<tr><td>${esc(w.name)}</td><td class="num">${r.P}</td><td class="num">${r.F}</td><td class="num ${r.A?"neg":""}">${r.A}</td><td class="num">${r.paidDays}</td><td class="num">${omr(r.gross)}</td><td class="num">${r.OT?omr(r.otPay):"—"}</td><td class="num ${r.tded?"neg":""}">${omr(r.tded)}</td><td class="num"><b>${omr(r.net)}</b></td><td><span class="pill ${r.paid?"good":"bad"}">${r.paid?"مدفوع":"غير مدفوع"}</span></td></tr>`),`<tr><td>الإجمالي</td><td class="num">${sum(rows,x=>x.r.P)}</td><td class="num">${sum(rows,x=>x.r.F)}</td><td class="num">${sum(rows,x=>x.r.A)}</td><td></td><td class="num">${omr(sum(rows,x=>x.r.gross))}</td><td class="num">${omr(sum(rows,x=>x.r.otPay))}</td><td class="num">${omr(sum(rows,x=>x.r.tded))}</td><td class="num">${omr(sum(rows,x=>x.r.net))}</td><td></td></tr>`)+`<div class="toolbar"><button class="btn ghost sm" data-go="hr">فتح كشف الرواتب</button></div>`]; }
+  if(k==="ded"){ const L=S.deductions.filter(d=>month(d.date)===m).sort((a,b)=>(a.date||"").localeCompare(b.date||"")); const P=[]; activeWorkers().forEach(w=>{ eachDay(m+"-01",t,d=>{ const c=prodCut(w,attRec(d)[w.id]); if(c&&c.ded>0) P.push({d,n:w.name,q:c.q,tg:w.target,a:c.ded}); }); });
+    return ["تفاصيل خصومات "+m,`<h3>السلف والخصومات</h3>`+tb(["التاريخ","العامل","النوع","السبب","المبلغ"],L.map(d=>`<tr><td>${esc(d.date)}</td><td>${esc(wn[d.wid]||"")}</td><td>${esc(d.type||"")}</td><td>${esc(d.reason||"")}</td><td class="num">${omr(d.amount)}</td></tr>`),`<tr><td colspan="4">الإجمالي</td><td class="num">${omr(sum(L,d=>d.amount))}</td></tr>`)+`<h3>خصم الإنتاجية (أقل من الهدف)</h3>`+tb(["التاريخ","العامل","المنجز م²","الهدف","المبلغ"],P.sort((a,b)=>a.d.localeCompare(b.d)).map(x=>`<tr><td>${x.d}</td><td>${esc(x.n)}</td><td class="num">${n0(x.q)}</td><td class="num">${n0(x.tg)}</td><td class="num">${omr(x.a)}</td></tr>`),`<tr><td colspan="4">الإجمالي</td><td class="num">${omr(sum(P,x=>x.a))}</td></tr>`)]; }
+  if(k==="pT"){ const L=S.progress.filter(p=>p.date===t&&Number(p.qty));
+    return ["إنتاج اليوم "+t,tb(["العامل/المصدر","البند","الموقع","م²","القيمة ر.ع"],L.map(p=>`<tr><td>${p.fromAtt?esc(wn[p.wid]||""):"إدخال مباشر"}</td><td>${esc(am[p.act]?.name||p.act)}</td><td>${esc(p.location||"")}</td><td class="num">${n0(p.qty)}</td><td class="num">${omr(valOf(p))}</td></tr>`),`<tr><td colspan="3">الإجمالي</td><td class="num">${n0(sum(L,p=>p.qty))}</td><td class="num">${omr(sum(L,valOf))}</td></tr>`)+`<div class="toolbar"><button class="btn ghost sm" data-print="daily" data-drd="${t}">التقرير اليومي الشامل</button></div>`]; }
+  if(k==="pW"||k==="pM"){ const from=k==="pW"?ws:m+"-01"; const days=[]; eachDay(from,t,d=>{ const v=prodOn(d); const q=sum(S.progress.filter(p=>p.date===d),p=>p.qty); days.push({d,v,q,c:dayCmp(d).cost}); }); const by={}; S.progress.filter(p=>p.date>=from&&p.date<=t).forEach(p=>{ const a=actKey(p.act); by[a]=by[a]||{q:0,v:0}; by[a].q+=Number(p.qty)||0; by[a].v+=valOf(p); });
+    return [(k==="pW"?"إنتاج الأسبوع":"إنتاج الشهر")+` (${from} ← ${t})`,`<h3>حسب البند</h3>`+tb(["البند","م²","القيمة ر.ع"],acts().filter(a=>by[a.key]).map(a=>`<tr><td>${esc(a.name)}</td><td class="num">${n0(by[a.key].q)}</td><td class="num">${omr(by[a.key].v)}</td></tr>`))+`<h3>يوم بيوم</h3>`+tb(["التاريخ","م²","الإنتاج ر.ع","التكلفة ر.ع","الفرق"],days.reverse().map(x=>`<tr><td>${x.d}</td><td class="num">${n0(x.q)}</td><td class="num">${omr(x.v)}</td><td class="num">${omr(x.c)}</td><td class="num ${x.v-x.c>=0?"pos":"neg"}">${omr(x.v-x.c)}</td></tr>`))]; }
+  if(k==="days"){ const f=forecast(), d=doneBy(); const tf=st().targetFinish; const left=tf&&tf>t?workDays(t,tf).length:0;
+    return ["الجدول الزمني والمتبقي",`<div class="kpis"><div class="kpi"><span class="l">المتبقي من العقد</span><span class="v">${omr(f.remaining)}</span></div><div class="kpi"><span class="l">متوسط الإنتاج (14 يوم)</span><span class="v">${omr(f.avg)}</span></div><div class="kpi"><span class="l">المطلوب يومياً للانتهاء في الموعد</span><span class="v">${tf&&left?omr(f.remaining/left):"—"}</span><span class="n">${tf?`حتى ${tf} (${left} يوم عمل)`:"حدّد تاريخ الانتهاء في الإعدادات"}</span></div></div>`+tb(["البند","المنفذ م²","المتبقي م²","القيمة المتبقية"],acts().map(a=>{ const q=Math.min(d[a.key]||0,st().qty); return `<tr><td>${esc(a.name)}</td><td class="num">${n0(q)}</td><td class="num">${n0(st().qty-q)}</td><td class="num">${omr((st().qty-q)*a.rate)}</td></tr>`; }))]; }
+  if(k==="att"){ const r=attRec(t);
+    return ["حضور اليوم "+t,tb(["العامل","الحالة","حضور","انصراف","البند","الموقع","م²"],activeWorkers().map(w=>{ const x=r[w.id]||{}; return `<tr><td>${esc(w.name)}</td><td><span class="pill ${x.s==="P"?"good":x.s==="A"?"bad":x.s?"warn":""}">${esc((ATT_ST.find(a=>a[0]===x.s)||["","لم يُسجّل"])[1])}</span></td><td>${esc(x.in||"")}</td><td>${esc(x.out||"")}</td><td>${esc(am[x.act]?.name||"")}</td><td>${esc(x.loc||"")}</td><td class="num">${x.qty??""}</td></tr>`; }))+`<div class="toolbar"><button class="btn ghost sm" data-go="hr">فتح الحضور</button></div>`]; }
+  return ["",""];
+}
+/* ---------- حركة الرئيسية ---------- */
+let lastTabAnim="";
+function dashAnim(){ if(tab!=="dash"||lastTabAnim==="dash"){ lastTabAnim=tab; return; } lastTabAnim=tab;
+  document.querySelectorAll("#app .anim").forEach((el,i)=>{ el.style.setProperty("--i",i); el.classList.add("in"); });
+  document.querySelectorAll("#app [data-cu]").forEach(el=>{ const to=Number(el.dataset.cu)||0, dec=el.dataset.dec?Number(el.dataset.dec):3; const t0=performance.now(), D=900; const step=n=>{ const p=Math.min(1,(n-t0)/D), e=1-Math.pow(1-p,3); el.textContent=(to*e).toLocaleString("en-US",{minimumFractionDigits:dec,maximumFractionDigits:dec}); if(p<1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
+  document.querySelectorAll("#app .ring-fg").forEach(c=>{ const v=c.dataset.p; c.style.strokeDashoffset=c.dataset.len; requestAnimationFrame(()=>requestAnimationFrame(()=>{ c.style.strokeDashoffset=v; })); });
+}
+function heroHtml(){
+  const t=today(), CV=st().contractValue, ev=earned(), pct=Math.min(100,ev/CV*100), hr=new Date().getHours(); const nm=(window.ME&&window.ME.name)||me||"";
+  const g=hr<12?"صباح الخير":hr<18?"مساء الخير":"مساء النور"; const R=42, L=2*Math.PI*R; const rec=attRec(t); const pres=activeWorkers().filter(w=>(rec[w.id]||{}).s==="P").length;
+  const dn=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"][new Date(t+"T12:00:00").getDay()];
+  return `<section class="hero anim"><div class="hero-t"><div class="hero-g">${g}${nm?`، ${esc(nm)}`:""} 👋</div><div class="hero-d">${dn} ${t} · مشروع يتي بلازا</div>
+    <div class="hero-s"><span><b data-cu="${pres}" data-dec="0">${pres}</b> حاضر من ${activeWorkers().length}</span><span><b data-cu="${prodOn(t).toFixed(3)}">${omr(prodOn(t))}</b> إنتاج اليوم</span><span><b data-cu="${(CV-ev).toFixed(3)}">${omr(CV-ev)}</b> متبقٍ من العقد</span></div></div>
+    <div class="ring"><svg viewBox="0 0 100 100" width="104" height="104"><circle cx="50" cy="50" r="${R}" class="ring-bg"/><circle cx="50" cy="50" r="${R}" class="ring-fg" stroke-dasharray="${L}" data-len="${L}" data-p="${L*(1-pct/100)}" style="stroke-dashoffset:${L*(1-pct/100)}"/></svg><div class="ring-v"><b>${n0(pct)}%</b><span>الإنجاز</span></div></div></section>`;
+}
+function mdHtml(t){ const e=esc(String(t||"")); return e.split(/\n/).map(l=>{ let x=l.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>"); if(/^#{1,3}\s/.test(x)) return `<h3>${x.replace(/^#{1,3}\s/,"")}</h3>`; if(/^\s*[-*•]\s+/.test(x)) return `<li>${x.replace(/^\s*[-*•]\s+/,"")}</li>`; if(/^\s*\d+[.)-]\s+/.test(x)) return `<li class="ol">${x.trim()}</li>`; if(/^\|/.test(x)) return `<div class="mdt">${x}</div>`; return x.trim()?`<p>${x}</p>`:""; }).join(""); }
+/* ---------- فريق الإدارة الذكي ---------- */
+const TEAM=[["daily","ملخص اليوم","المشاكل والحلول والمطلوب منك","📋"],["meeting","اجتماع الإدارة","كل الأدوار + خطة منسقة","🤝"],["gm","المدير العام","الأولويات والقرارات","🧭"],["cfo","المدير المالي","السيولة والربحية","💰"],["acc","المحاسب","القيود والرواتب والضريبة","🧾"],["hr","الموارد البشرية","العمال والإنتاجية والقانون","👷"],["bd","تطوير الأعمال","مشاريع جديدة وتسعير","📈"],["eng","مهندس الحلول والابتكار","السبب الجذري وحلول مبتكرة","🛠️"]];
+let teamRole="daily", teamBusy=false, teamAns=null;
+function teamCtx(){ const c=snapshot(); try{ const R=auditRun(), s=auditScore(R); c.internalAudit={score:s.score,findings:R.filter(r=>r.ok===false).map(r=>({id:r.id,sev:r.sev,title:r.title,evidence:r.findings.slice(0,3)}))}; }catch(e){}
+  try{ const D=smData(); c.monthToDate={from:D.from,to:D.to,wagesDue:+D.wages.toFixed(3),wagesPaid:+D.paid.toFixed(3),expenses:+D.expT.toFixed(3),food:+D.fd.toFixed(3),production:+D.prod.toFixed(3),cost:+D.cost.toFixed(3),deductions:D.W.flatMap(r=>r.advl.map(x=>({date:x.date,worker:r.w.name,type:x.type,reason:x.reason,amount:x.amount}))) }; }catch(e){}
+  try{ c.last14days=workDays(addDays(today(),-14),today()).map(d=>{ const r=dayCmp(d); return {d,prod:+r.prod.toFixed(1),cost:+r.cost.toFixed(1),present:r.n}; }); }catch(e){}
+  c.openIssues=S.issues.filter(i=>i.status!=="closed").map(i=>({date:i.date,text:i.text,days:i.days})); c.lateMaterials=S.matreq.filter(m=>m.status!=="recv"&&m.needBy<today()).map(m=>({item:m.item,needBy:m.needBy}));
+  c.pendingInspections=S.insp.filter(i=>i.status==="req").length; c.openSnags=S.snags.filter(x=>x.status!=="closed").length; c.workers=activeWorkers().map(w=>({name:w.name,role:w.role,salary:w.salary,target:w.target})); return c; }
+function vTeam(){
+  const hist=(S.advice||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,8); const R=TEAM.find(x=>x[0]===teamRole);
+  return `<section class="panel"><div class="row"><h2>فريق الإدارة الذكي</h2></div>
+    <p class="note">ستة مستشارين بالذكاء الاصطناعي يقرؤون أرقام المشروع الحقيقية ويعملون كفريق واحد: المدير العام، المدير المالي، المحاسب، الموارد البشرية، تطوير الأعمال، ومهندس الحلول الذي لا يتوقف عند الحل الأول. اختر الدور واطرح سؤالك أو اطلب تقريره.</p>
+    <div class="team">${TEAM.map(x=>`<button type="button" class="tm ${x[0]===teamRole?"on":""}" data-team="${x[0]}"><span class="tm-i">${x[3]}</span><b>${x[1]}</b><small>${x[2]}</small></button>`).join("")}</div>
+    <textarea id="tm-q" placeholder="${teamRole==="daily"?"اختياري: أضف ملاحظة لملخص اليوم":"سؤالك لـ "+R[1]+"… مثال: هل أزيد 5 عمال؟ كيف أسعّر مشروعاً مشابهاً؟"}"></textarea>
+    <div class="toolbar"><button class="btn" id="tm-go" ${teamBusy?"disabled":""}>${teamBusy?"جارٍ التحليل… (حتى دقيقة)":R[3]+" اسأل "+R[1]}</button></div>
+    ${teamAns?`<div class="answer md">${teamAns.err?`<p class="neg">${esc(teamAns.err)}</p>`:mdHtml(teamAns.a)}</div>`:""}
+    ${hist.length?`<details><summary>السجل (${(S.advice||[]).length})</summary>${hist.map(h=>`<details class="au"><summary>${esc(h.date)} · ${esc((TEAM.find(x=>x[0]===h.role)||["","؟"])[1])}${h.q?` · ${esc(String(h.q).slice(0,60))}`:""}</summary><div class="md">${mdHtml(h.a)}</div>${delBtn("advice",h.id)}</details>`).join("")}</details>`:""}
+  </section>`;
+}
+async function teamAsk(){ if(typeof gsCall!=="function"){ toast("متاح في تطبيق الجوال/الكمبيوتر فقط"); return; } const q=(document.getElementById("tm-q")?.value||"").trim(); if(teamRole!=="daily"&&teamRole!=="meeting"&&!q&&!confirm("بدون سؤال سيُعد "+TEAM.find(x=>x[0]===teamRole)[1]+" تقريره العام. متابعة؟")) return;
+  teamBusy=true; teamAns=null; render(); try{ const r=await gsCall("apiAdvisor",teamRole,q,teamCtx()); teamAns={a:r.a}; try{ gsApply(await gsCall("apiGetAll")); }catch(e){} }catch(e){ teamAns={err:(e&&e.message)||"تعذّر"}; } teamBusy=false; render(); }
+document.addEventListener("click",ev=>{ const t=ev.target.closest("[data-kd],#kd-x,[data-team],#tm-go,.dlg#kd-dlg"); if(!t) return;
+  if(t.dataset&&t.dataset.kd){ ev.stopImmediatePropagation(); kdOpen(t.dataset.kd); return; }
+  if(t.id==="kd-x"||(t.id==="kd-dlg"&&ev.target.id==="kd-dlg")){ ev.stopImmediatePropagation(); document.getElementById("kd-dlg").hidden=true; return; }
+  if(t.dataset&&t.dataset.team){ ev.stopImmediatePropagation(); teamRole=t.dataset.team; teamAns=null; if(t.dataset.go){ tab=t.dataset.go; window.scrollTo(0,0); } render(); return; }
+  if(t.id==="tm-go"){ ev.stopImmediatePropagation(); teamAsk(); return; }
+},true);
+document.addEventListener("click",ev=>{ const t=ev.target.closest("#kd-dlg button[data-go],#kd-dlg button[data-print]"); if(t) document.getElementById("kd-dlg").hidden=true; },true);
+
 function vDash(){
   const t=today(), y=addDays(t,-1), ws=weekStart(t), m=month(t);
   const pT=prodOn(t), pY=prodOn(y), pW=prodRange(ws,t), pWp=prodRange(addDays(ws,-7),addDays(t,-7)), pM=prodRange(m+"-01",t);
@@ -978,16 +1077,16 @@ function vDash(){
   const f=forecast(); const spent=spentTotal(); const spentM=expensesTotal(S.expenses.filter(e=>month(e.date)===m))+foodMonth(m);
   const rec=attRec(t); const pres=activeWorkers().filter(w=>(rec[w.id]||{}).s==="P").length;
   const ev=earned(); const d=doneBy();
-  return `${vDaily()}
+  return `${heroHtml()}<div class="toolbar anim" style="margin:-4px 0 10px"><button class="btn sm ai-btn" data-go="adv" data-team="daily" type="button">📋 ملخص اليوم الذكي: المشاكل والحلول والمطلوب منك</button></div>${vDaily()}
   <section class="kpis">
-    <div class="kpi"><span class="l">المنصرفات حتى اللحظة</span><span class="v">${omr(spent)}</span><span class="n">مصروفات هذا الشهر ${omr(spentM)}</span></div>
-    <div class="kpi"><span class="l">رواتب ${m} المدفوعة</span><span class="v pos">${omr(paid)}</span><span class="n">غير المدفوعة <b class="neg">${omr(unpaid)}</b></span></div>
-    <div class="kpi"><span class="l">خصومات العمال هذا الشهر</span><span class="v">${omr(ded)}</span><span class="n">سلف وغياب وجزاءات</span></div>
-    <div class="kpi"><span class="l">إنتاج اليوم</span><span class="v">${omr(pT)}</span><span class="n">أمس ${omr(pY)} · ${delta(pT,pY)}</span></div>
-    <div class="kpi"><span class="l">إنتاج هذا الأسبوع</span><span class="v">${omr(pW)}</span><span class="n">نفس الفترة الأسبوع الماضي ${delta(pW,pWp)}</span></div>
-    <div class="kpi"><span class="l">إنتاج هذا الشهر</span><span class="v">${omr(pM)}</span><span class="n">التراكمي ${omr(ev)} (${n0(ev/st().contractValue*100)}%)</span></div>
-    <div class="kpi"><span class="l">أيام العمل المتبقية</span><span class="v">${f.days??"—"}</span><span class="n">${f.finish?`الانتهاء المتوقع ${f.finish}`:"تحتاج إنتاجاً مسجلاً"}</span></div>
-    <div class="kpi"><span class="l">الحضور اليوم</span><span class="v">${pres} / ${activeWorkers().length}</span><span class="n">متوسط الإنتاج ${omr(f.avg)} ر.ع/يوم</span></div>
+    <div class="kpi kd anim" data-kd="spent"><span class="l">المنصرفات حتى اللحظة</span><span class="v" data-cu="${spent.toFixed(3)}">${omr(spent)}</span><span class="n">مصروفات هذا الشهر ${omr(spentM)}</span></div>
+    <div class="kpi kd anim" data-kd="pay"><span class="l">رواتب ${m} المدفوعة</span><span class="v pos" data-cu="${paid.toFixed(3)}">${omr(paid)}</span><span class="n">غير المدفوعة <b class="neg">${omr(unpaid)}</b></span></div>
+    <div class="kpi kd anim" data-kd="ded"><span class="l">خصومات العمال هذا الشهر</span><span class="v" data-cu="${ded.toFixed(3)}">${omr(ded)}</span><span class="n">سلف وجزاءات وإنتاجية</span></div>
+    <div class="kpi kd anim" data-kd="pT"><span class="l">إنتاج اليوم</span><span class="v" data-cu="${pT.toFixed(3)}">${omr(pT)}</span><span class="n">أمس ${omr(pY)} · ${delta(pT,pY)}</span></div>
+    <div class="kpi kd anim" data-kd="pW"><span class="l">إنتاج هذا الأسبوع</span><span class="v" data-cu="${pW.toFixed(3)}">${omr(pW)}</span><span class="n">نفس الفترة الأسبوع الماضي ${delta(pW,pWp)}</span></div>
+    <div class="kpi kd anim" data-kd="pM"><span class="l">إنتاج هذا الشهر</span><span class="v" data-cu="${pM.toFixed(3)}">${omr(pM)}</span><span class="n">التراكمي ${omr(ev)} (${n0(ev/st().contractValue*100)}%)</span></div>
+    <div class="kpi kd anim" data-kd="days"><span class="l">أيام العمل المتبقية</span><span class="v">${f.days??"—"}</span><span class="n">${f.finish?`الانتهاء المتوقع ${f.finish}`:"تحتاج إنتاجاً مسجلاً"}</span></div>
+    <div class="kpi kd anim" data-kd="att"><span class="l">الحضور اليوم</span><span class="v">${pres} / ${activeWorkers().length}</span><span class="n">متوسط الإنتاج ${omr(f.avg)} ر.ع/يوم</span></div>
   </section>
   ${vCmp()}
   <div class="grid2">
@@ -1064,9 +1163,10 @@ function vHr(){
     ${aw.length?`<div class="tbl"><table><thead><tr><th>العامل</th><th>الحالة</th><th>حضور</th><th>انصراف</th><th class="num">ساعات</th><th>النشاط</th><th>الموقع</th><th class="num">الإنجاز م²</th><th class="num">الهدف</th><th class="num">النسبة</th><th class="num">خصم الإنتاجية</th></tr></thead><tbody>${aw.map(w=>{const r=rec[w.id]||{};return `<tr><td>${esc(w.name)} <span class="ref">${esc(w.role)}</span></td><td><select class="${r.s?"st-"+r.s:""}" data-atts="${esc(w.id)}" aria-label="حالة ${esc(w.name)}"><option value="">—</option>${opts(ATT_ST,r.s)}</select></td><td><input type="time" data-atti="${esc(w.id)}" value="${esc(r.in||"")}" aria-label="حضور"></td><td><input type="time" data-atto="${esc(w.id)}" value="${esc(r.out||"")}" aria-label="انصراف"></td><td class="num">${r.s==="P"?n0(hrs(r.in,r.out)):""}</td><td>${r.s==="P"?`<select data-atta="${esc(w.id)}" aria-label="النشاط" style="width:130px">${acts().map(a=>`<option value="${a.key}" ${(r.act||w.act||acts()[0].key)===a.key?"selected":""}>${esc(a.name)}</option>`).join("")}</select>`:""}</td><td>${r.s==="P"?`<input data-attl="${esc(w.id)}" value="${esc(r.loc||"")}" placeholder="A1-3-302" style="width:105px" aria-label="الموقع">`:""}</td><td class="num">${r.s==="P"?`<input type="number" step="0.1" min="0" inputmode="decimal" style="width:80px" data-attq="${esc(w.id)}" value="${r.qty??""}" aria-label="الإنجاز">`:""}</td><td class="num">${w.target?n0(w.target):"—"}</td>${(()=>{const c=prodCut(w,r);return c?`<td class="num"><span class="pill ${c.pct>=1?"good":c.pct>=.8?"warn":"bad"}">${n0(c.pct*100)}%</span></td><td class="num ${c.ded>0?"neg":""}">${omr(c.ded)}</td>`:`<td></td><td></td>`})()}</tr>`}).join("")}</tbody></table></div>`:`<div class="empty">أضف العمال أولاً من النموذج أدناه.</div>`}
   </section>
   <section class="panel mgr">
-    <div class="row"><h2>كشف الرواتب</h2><div class="toolbar"><select id="pay-month" aria-label="الشهر">${pm.map(m=>`<option ${m===payMonth?"selected":""}>${m}</option>`).join("")}</select><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="s-absded" style="width:auto" ${st().deductAbsence?"checked":""}>خصم الغياب تلقائياً</label><label style="display:flex;gap:6px;align-items:center">أيام الراتب<input type="number" id="s-paydays" min="1" max="31" style="width:64px" value="${st().payDays||30}"></label>${printBtn("payroll","طباعة كشف التوقيع")}</div></div>
+    <div class="row"><h2>كشف الرواتب</h2><div class="toolbar"><select id="pay-month" aria-label="الشهر">${pm.map(m=>`<option ${m===payMonth?"selected":""}>${m}</option>`).join("")}</select><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="s-leavepaid" style="width:auto" ${st().leavePaid?"checked":""}>الإجازة (إ) مدفوعة</label><label style="display:flex;gap:6px;align-items:center">أجر العمل يوم الجمعة ×<input type="number" id="s-otrate" min="0" max="3" step="0.25" style="width:64px" value="${otRate()}"></label>${printBtn("payroll","طباعة كشف التوقيع")}</div></div>
+    <p class="note">قاعدة الحساب: يومية العامل = الراتب ÷ أيام الشهر. يُدفع له عن كل يوم حضور وكل يوم جمعة (إجازة مدفوعة)${st().leavePaid?" وأيام الإجازة":""}، ولا يُدفع عن أيام الغياب. العمل يوم الجمعة يُحسب أجراً إضافياً (× ${otRate()}). الحساب حتى اليوم فقط، فالأيام القادمة لا تُحسب.</p>
     <div class="kpis"><div class="kpi"><span class="l">إجمالي الرواتب</span><span class="v">${omr(tot.sal)}</span></div><div class="kpi"><span class="l">الخصومات</span><span class="v">${omr(tot.ded)}</span></div><div class="kpi"><span class="l">الصافي المستحق</span><span class="v">${omr(tot.net)}</span></div><div class="kpi"><span class="l">المدفوع</span><span class="v pos">${omr(tot.paid)}</span><span class="n">المتبقي <b class="neg">${omr(Math.max(0,tot.net-tot.paid))}</b></span></div></div>
-    ${rows.length?`<div class="tbl"><table><thead><tr><th>العامل</th><th class="num">الراتب</th><th class="num">حضور</th><th class="num">غياب</th><th class="num">ساعات</th><th class="num">الإنجاز م²</th><th class="num">أيام دون الهدف</th><th class="num">خصم الإنتاجية</th><th class="num">الخصومات</th><th class="num">الصافي</th><th>الدفع</th><th>تاريخ الدفع</th></tr></thead><tbody>${rows.map(({w,r})=>`<tr><td>${esc(w.name)}</td><td class="num">${omr(w.salary)}</td><td class="num">${r.P}</td><td class="num">${r.A}</td><td class="num">${n0(r.H)}</td><td class="num">${n0(r.Q)}</td><td class="num">${r.short}</td><td class="num ${r.prodDed>0?"neg":""}">${omr(r.prodDed)}</td><td class="num">${omr(r.tded)}</td><td class="num"><b>${omr(r.net)}</b></td><td><button class="pill ${r.paid?"good":"bad"}" data-paytog="${esc(w.id)}">${r.paid?"مدفوع":"غير مدفوع"}</button></td><td>${esc(r.paidDate)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">لا يوجد عمال.</div>`}
+    ${rows.length?`<div class="tbl"><table><thead><tr><th>العامل</th><th class="num">الراتب</th><th class="num">حضور</th><th class="num">جمعة مدفوعة</th><th class="num">غياب</th><th class="num">أيام مستحقة</th><th class="num">المستحق</th><th class="num">جمعة إضافي</th><th class="num">الإنجاز م²</th><th class="num">خصم الإنتاجية</th><th class="num">سلف وخصومات</th><th class="num">الصافي</th><th>الدفع</th><th>تاريخ الدفع</th></tr></thead><tbody>${rows.map(({w,r})=>`<tr><td>${esc(w.name)}</td><td class="num">${omr(w.salary)}</td><td class="num">${r.P}</td><td class="num">${r.F}</td><td class="num ${r.A?"neg":""}">${r.A}</td><td class="num">${r.paidDays}</td><td class="num">${omr(r.gross)}</td><td class="num ${r.OT?"pos":""}">${r.OT?`${r.OT} · ${omr(r.otPay)}`:"0"}</td><td class="num">${n0(r.Q)}</td><td class="num ${r.prodDed>0?"neg":""}">${omr(r.prodDed)}</td><td class="num ${r.ded>0?"neg":""}">${omr(r.ded)}</td><td class="num"><b>${omr(r.net)}</b></td><td><button class="pill ${r.paid?"good":"bad"}" data-paytog="${esc(w.id)}">${r.paid?"مدفوع":"غير مدفوع"}</button></td><td>${esc(r.paidDate)}</td></tr>`).join("")}</tbody></table></div>`:`<div class="empty">لا يوجد عمال.</div>`}
   </section>
   <div class="grid2 mgr">
   <section class="panel">
@@ -1577,7 +1677,7 @@ function projProfit(){ const f=forecast(); const left = f.days!=null ? f.days/26
   return st().contractValue - (spentTotal() + sum(unpaidSalaries(),u=>u.net) + (subWorkTotal()-subPaidTotal()) + monthlyBudget()*left); }
 function vAdv(){
   const f=forecast(); const cash=received()-spentTotal();
-  return `
+  return `${vTeam()}
   <section class="kpis">
     <div class="kpi"><span class="l">الرصيد النقدي للمشروع</span><span class="v ${cash>=0?"pos":"neg"}">${omr(cash)}</span><span class="n">المحصّل − كل المنصرف</span></div>
     <div class="kpi"><span class="l">الربح المتوقع حتى الآن</span><span class="v ${earned()-spentTotal()>=0?"pos":"neg"}">${omr(earned()-spentTotal()-sum(unpaidSalaries(),u=>u.net))}</span><span class="n">المنجز − المنصرف − الرواتب المستحقة</span></div>
@@ -1588,13 +1688,7 @@ function vAdv(){
   </section>
   <section class="panel"><h2>التحليل والتوصيات</h2>${insHtml(insights())}</section>
   ${vCash()}
-  <section class="panel" hidden>
-    <h2>اسأل المستشار المالي</h2>
-    <p class="note">يقرأ أرقام المشروع الحالية ويجيبك. مثال: هل أقدر أزيد 5 عمال؟ كم أحتاج سيولة لنهاية الشهر؟ هل أعطي الدهان لمقاول باطن بـ 0.6؟</p>
-    <textarea id="adv-q" placeholder="اكتب سؤالك هنا"></textarea>
-    <div class="toolbar"><button class="btn" id="adv-ask" ${advBusy?"disabled":""}>${advBusy?"جارٍ التحليل…":"اسأل"}</button>${advBusy?`<button class="btn ghost sm" id="adv-stop">إيقاف</button>`:""}${sampler===null&&ready?`<span class="note">المستشار الذكي غير متاح في هذا العرض.</span>`:""}</div>
-    ${advAnswer?`<div class="answer" id="adv-a">${esc(advAnswer)}</div>`:""}
-  </section>`;
+  `;
 }
 async function askAdvisor(){
   const q=($("#adv-q")?.value||"").trim(); if(!q){ toast("اكتب سؤالك أولاً"); return; }
@@ -1660,7 +1754,7 @@ function docHtml(title, body, dir="rtl"){
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap"><style>${PCSS}</style></head><body>${body}
 <script>window.addEventListener("load",function(){setTimeout(function(){window.print()},400)})<\/script></body></html>`;
 }
-function rptHead(title, sub){ return `<div class="head"><div><h1>${esc(title)}</h1><div class="muted">${esc(sub||"")}</div></div><div class="muted" style="text-align:end">Mostafa Almasara Trad Investment SPC<br>مشروع يتي بلازا · ${today()}</div></div>`; }
+function rptHead(title, sub){ return `<div class="head"><div><h1>${esc(title)}</h1><div class="muted">${esc(sub||"")}</div></div><div class="muted" style="text-align:end">Mostafa Almasara Trad Investment SPC<br>مشروع يتي بلازا · ${today()}<br>إعداد النظام: أحمد عبد العزيز · 95258470</div></div>`; }
 function words(n){
   const a=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"],b=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
   const h=x=>{ let s=""; if(x>=100){ s+=a[Math.floor(x/100)]+" Hundred"; x%=100; if(x) s+=" "; } if(x>=20){ s+=b[Math.floor(x/10)]+(x%10?"-"+a[x%10]:""); } else if(x) s+=a[x]; return s; };
@@ -1706,7 +1800,7 @@ function buildPrint(kind, arg){
   }
   if(kind==="payroll"){
     const rows=activeWorkers().map(w=>({w,r:payRow(payMonth,w)}));
-    return ["كشف رواتب "+payMonth, `<style>@page{size:A4 landscape;margin:9mm}th,td{padding:3pt 4pt;font-size:9pt}.sig{min-width:110pt}</style>${rptHead("كشف رواتب العمال – استلام وتوقيع","شهر "+payMonth)}<table><thead><tr><th>#</th><th>العامل</th><th>الوظيفة</th><th class="n">الراتب</th><th class="n">أيام الحضور</th><th class="n">الغياب</th><th class="n">الإنجاز م²</th><th class="n">خصم الإنتاجية</th><th class="n">إجمالي الخصومات</th><th class="n">الصافي</th><th>توقيع العامل بالاستلام</th></tr></thead><tbody>${rows.map(({w,r},i)=>`<tr><td>${i+1}</td><td>${esc(w.name)}</td><td>${esc(w.role)}</td><td class="n">${omr(w.salary)}</td><td class="n">${r.P}</td><td class="n">${r.A}</td><td class="n">${n0(r.Q)}</td><td class="n">${omr(r.prodDed)}</td><td class="n">${omr(r.tded)}</td><td class="n"><b>${omr(r.net)}</b></td><td class="sig"></td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">الإجمالي</td><td class="n">${omr(sum(rows,x=>x.w.salary))}</td><td></td><td></td><td class="n">${n0(sum(rows,x=>x.r.Q))}</td><td class="n">${omr(sum(rows,x=>x.r.prodDed))}</td><td class="n">${omr(sum(rows,x=>x.r.tded))}</td><td class="n">${omr(sum(rows,x=>x.r.net))}</td><td></td></tr></tfoot></table>
+    return ["كشف رواتب "+payMonth, `<style>@page{size:A4 landscape;margin:9mm}th,td{padding:3pt 4pt;font-size:9pt}.sig{min-width:110pt}</style>${rptHead("كشف رواتب العمال – استلام وتوقيع","شهر "+payMonth)}<table><thead><tr><th>#</th><th>العامل</th><th>الوظيفة</th><th class="n">الراتب</th><th class="n">حضور</th><th class="n">جمعة</th><th class="n">غياب</th><th class="n">أيام مستحقة</th><th class="n">المستحق</th><th class="n">إضافي الجمعة</th><th class="n">خصم الإنتاجية</th><th class="n">سلف وخصومات</th><th class="n">الصافي</th><th>توقيع العامل بالاستلام</th></tr></thead><tbody>${rows.map(({w,r},i)=>`<tr><td>${i+1}</td><td>${esc(w.name)}</td><td>${esc(w.role)}</td><td class="n">${omr(w.salary)}</td><td class="n">${r.P}</td><td class="n">${r.F}</td><td class="n">${r.A}</td><td class="n">${r.paidDays}</td><td class="n">${omr(r.gross)}</td><td class="n">${r.OT?omr(r.otPay):""}</td><td class="n">${omr(r.prodDed)}</td><td class="n">${omr(r.ded)}</td><td class="n"><b>${omr(r.net)}</b></td><td class="sig"></td></tr>`).join("")}</tbody><tfoot><tr><td colspan="3">الإجمالي</td><td class="n">${omr(sum(rows,x=>x.w.salary))}</td><td></td><td></td><td></td><td></td><td class="n">${omr(sum(rows,x=>x.r.gross))}</td><td class="n">${omr(sum(rows,x=>x.r.otPay))}</td><td class="n">${omr(sum(rows,x=>x.r.prodDed))}</td><td class="n">${omr(sum(rows,x=>x.r.ded))}</td><td class="n">${omr(sum(rows,x=>x.r.net))}</td><td></td></tr></tfoot></table>
     <h2>تفاصيل الخصومات</h2><table><thead><tr><th>التاريخ</th><th>العامل</th><th>النوع</th><th>السبب</th><th class="n">المبلغ</th></tr></thead><tbody>${S.deductions.filter(d=>month(d.date)===payMonth).map(d=>`<tr><td>${esc(d.date)}</td><td>${esc((workers().find(w=>w.id===d.wid)||{}).name||"")}</td><td>${esc(d.type)}</td><td>${esc(d.reason)}</td><td class="n">${omr(d.amount)}</td></tr>`).join("")||`<tr><td colspan="5">لا توجد</td></tr>`}</tbody></table>
     <div class="foot"><span>المحاسب: ............</span><span>المدير: ............</span></div>`];
   }
@@ -1851,7 +1945,8 @@ document.addEventListener("change", async ev=>{
   if(t.id==="inv-from"){ invFrom=t.value; render(); return; }
   if(t.id==="inv-to"){ invTo=t.value||today(); render(); return; }
   if(t.id==="s-dur"){ saveSettings({durationMonths:Number(t.value)||3}); return; }
-  if(t.id==="s-absded"){ await saveSettings({deductAbsence:t.checked}); render(); return; }
+  if(t.id==="s-leavepaid"){ await saveSettings({leavePaid:t.checked}); render(); return; }
+  if(t.id==="s-otrate"){ await saveSettings({otRate:Number(t.value)}); render(); return; }
   if(t.dataset.bud!=null){ const b=[...(st().budget||[])]; b[t.dataset.bud]={...b[t.dataset.bud],monthly:Number(t.value)||0}; saveSettings({budget:b}); return; }
   if(t.dataset.rate!=null){ saveSettings({activities:acts().map((x,i)=>i==t.dataset.rate?{...x,rate:Number(t.value)||0}:x)}); return; }
   if(t.dataset.wtarget){ upd("workers/"+t.dataset.wtarget,{target:Number(t.value)||0}); return; }
@@ -1924,7 +2019,7 @@ function subscribeAll(){
   const map=(col,key)=>db.collection(col).onSnapshot(snap=>{ S[key]={}; snap.docs.forEach(d=>S[key][d.id]=d.data()); });
   list("expenses","expenses",sortDesc); list("workers","workers"); list("progress","progress",sortDesc); list("deductions","deductions",sortDesc);
   list("materials","materials",sortDesc); list("issues","issues",sortDesc); list("invoices","invoices",(a,b)=>(b.to||"").localeCompare(a.to||"")); list("checklist","checklist");
-  list("equipment","equipment"); list("opening","opening"); list("subs","subs"); list("subWork","subWork",sortDesc); list("subPay","subPay",sortDesc); list("voice","voice",sortDesc); list("locations","locations"); list("plan","plan"); list("insp","insp",sortDesc); list("snags","snags"); list("matreq","matreq",sortDesc); list("photos","photos",sortDesc); map("locstat","locstat");
+  list("equipment","equipment"); list("opening","opening"); list("subs","subs"); list("subWork","subWork",sortDesc); list("subPay","subPay",sortDesc); list("voice","voice",sortDesc); list("locations","locations"); list("plan","plan"); list("insp","insp",sortDesc); list("snags","snags"); list("matreq","matreq",sortDesc); list("photos","photos",sortDesc); map("locstat","locstat"); list("advice","advice");
   map("attendance","attendance"); map("payroll","payroll"); map("equipLog","equipLog");
   db.doc("settings/main").onSnapshot(s=>{ if(s.exists){ const d=s.data(); S.settings={...DEFAULT_SETTINGS,...d,company:{...DEFAULT_SETTINGS.company,...(d.company||{})},client:{...DEFAULT_SETTINGS.client,...(d.client||{})},project:{...DEFAULT_SETTINGS.project,...(d.project||{})},activities:normActs(d.activities)}; } live(); });
 }
