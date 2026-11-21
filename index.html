@@ -546,6 +546,7 @@ function buildDaily(d){
   ${other.length?`<h2>إنتاج مسجّل بدون اسم عامل</h2><table><thead><tr><th>الموقع</th><th>البند</th><th class="n">م²</th><th class="n">القيمة</th><th>ملاحظات</th></tr></thead><tbody>${other.map(p=>`<tr><td>${esc(p.location||"")}</td><td>${esc(am[p.act]?.name||p.act)}</td><td class="n">${n0(p.qty)}</td><td class="n">${omr(valOf(p))}</td><td>${esc(p.notes||"")}</td></tr>`).join("")}</tbody></table>`:""}
   <div class="grid"><div><h2>المعدات</h2><p class="muted">تعمل ${ec.ok} · تحت الصيانة ${ec.maint} · لا تعمل ${ec.down}${S.equipment.length-ec.ok-ec.maint-ec.down?` · لم تُسجّل ${S.equipment.length-ec.ok-ec.maint-ec.down}`:""}</p>${bad.length?`<table><tbody>${bad.map(e=>`<tr><td>${esc(e.name)} ${esc(e.code||"")}</td><td>${est[e.id]==="down"?"لا تعمل":"تحت الصيانة"}</td><td>${esc(ent[e.id]||"")}</td></tr>`).join("")}</tbody></table>`:""}</div>
   <div><h2>المشاكل والتأخير</h2>${iss.length?`<table><tbody>${iss.map(i=>`<tr><td>${esc(i.text)}</td><td class="n">${i.days?n0(i.days)+" يوم":""}</td></tr>`).join("")}</tbody></table>`:`<p class="muted">لا يوجد.</p>`}</div></div>
+  ${(()=>{ if(!isOwner()) return ""; const M=(S.advice||[]).filter(x=>(x.role==="meet_morning"||x.role==="meet_evening")&&String(x.date||"").slice(0,10)===d).sort((a,b)=>String(a.date).localeCompare(String(b.date))); return M.map(x=>`<div style="page-break-before:always"><h2>${esc(x.q||"محضر اجتماع")}</h2><div class="md">${mdHtml(x.a)}</div></div>`).join(""); })()}
   <div class="foot"><span>المشرف: ............</span><span>مهندس الموقع: ............</span><span>المدير: ............</span></div>`;
   return ["التقرير اليومي "+d, body];
 }
@@ -1057,16 +1058,31 @@ function teamCtx(){ const c=snapshot(); try{ const R=auditRun(), s=auditScore(R)
   c.openIssues=S.issues.filter(i=>i.status!=="closed").map(i=>({date:i.date,text:i.text,days:i.days})); c.lateMaterials=S.matreq.filter(m=>m.status!=="recv"&&m.needBy<today()).map(m=>({item:m.item,needBy:m.needBy}));
   c.pendingInspections=S.insp.filter(i=>i.status==="req").length; c.openSnags=S.snags.filter(x=>x.status!=="closed").length; c.workers=activeWorkers().map(w=>({name:w.name,role:w.role,salary:w.salary,target:w.target})); return c; }
 function vTeam(){
-  const hist=(S.advice||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,8); const R=TEAM.find(x=>x[0]===teamRole);
+  const hist=(S.advice||[]).filter(a=>!/^meet_/.test(a.role||"")).sort((a,b)=>(b.date||"").localeCompare(a.date||"")).slice(0,8); const R=TEAM.find(x=>x[0]===teamRole);
   return `<section class="panel"><div class="row"><h2>فريق الإدارة الذكي</h2></div>
     <p class="note">ستة مستشارين بالذكاء الاصطناعي يقرؤون أرقام المشروع الحقيقية ويعملون كفريق واحد: المدير العام، المدير المالي، المحاسب، الموارد البشرية، تطوير الأعمال، ومهندس الحلول الذي لا يتوقف عند الحل الأول. اختر الدور واطرح سؤالك أو اطلب تقريره.</p>
     <div class="team">${TEAM.map(x=>`<button type="button" class="tm ${x[0]===teamRole?"on":""}" data-team="${x[0]}"><span class="tm-i">${x[3]}</span><b>${x[1]}</b><small>${x[2]}</small></button>`).join("")}</div>
     <textarea id="tm-q" placeholder="${teamRole==="daily"?"اختياري: أضف ملاحظة لملخص اليوم":"سؤالك لـ "+R[1]+"… مثال: هل أزيد 5 عمال؟ كيف أسعّر مشروعاً مشابهاً؟"}"></textarea>
     <div class="toolbar"><button class="btn" id="tm-go" ${teamBusy?"disabled":""}>${teamBusy?"جارٍ التحليل… (حتى دقيقة)":R[3]+" اسأل "+R[1]}</button></div>
     ${teamAns?`<div class="answer md">${teamAns.err?`<p class="neg">${esc(teamAns.err)}</p>`:mdHtml(teamAns.a)}</div>`:""}
-    ${hist.length?`<details><summary>السجل (${(S.advice||[]).length})</summary>${hist.map(h=>`<details class="au"><summary>${esc(h.date)} · ${esc((TEAM.find(x=>x[0]===h.role)||["","؟"])[1])}${h.q?` · ${esc(String(h.q).slice(0,60))}`:""}</summary><div class="md">${mdHtml(h.a)}</div>${delBtn("advice",h.id)}</details>`).join("")}</details>`:""}
-  </section>`;
+    ${hist.length?`<details><summary>السجل (${(S.advice||[]).filter(a=>!/^meet_/.test(a.role||"")).length})</summary>${hist.map(h=>`<details class="au"><summary>${esc(h.date)} · ${esc((TEAM.find(x=>x[0]===h.role)||["","؟"])[1])}${h.q?` · ${esc(String(h.q).slice(0,60))}`:""}</summary><div class="md">${mdHtml(h.a)}</div>${delBtn("advice",h.id)}</details>`).join("")}</details>`:""}
+  </section>${vMeets()}`;
 }
+/* ---------- محاضر اجتماعات فريق الإدارة ---------- */
+const MEETK=[["morning","اجتماع الصباح","خطة اليوم · 6:00 صباحاً يومياً (عدا الجمعة)","🌅"],["evening","اجتماع المساء","تحليل اليوم · 10:00 مساءً مع التقرير اليومي","🌙"],["weekly","الاجتماع الأسبوعي","كل جمعة 7:00 صباحاً","📅"],["monthly","الاجتماع الشهري","يوم 1 من كل شهر 8:00 صباحاً","📊"]];
+let meetF="all", meetBusy="";
+function meetList(){ return (S.advice||[]).filter(a=>/^meet_/.test(a.role||"")&&(meetF==="all"||a.role==="meet_"+meetF)).sort((a,b)=>(b.date||"").localeCompare(a.date||"")); }
+function vMeets(){ const L=meetList(), K=k=>MEETK.find(x=>"meet_"+x[0]===k)||["","اجتماع","","🤝"];
+  return `<section class="panel"><div class="row"><h2>محاضر اجتماعات فريق الإدارة</h2><div class="toolbar"><select id="meet-f" aria-label="نوع الاجتماع"><option value="all">كل الاجتماعات</option>${MEETK.map(x=>`<option value="${x[0]}" ${meetF===x[0]?"selected":""}>${x[1]}</option>`).join("")}</select></div></div>
+    <p class="note">يجتمع الفريق تلقائياً ويُحفظ كل محضر هنا ويُرسل إلى بريدك: ملخص ما دار، المحصلة، التوصيات، والمطلوب منك. يمكنك أيضاً عقد أي اجتماع الآن.</p>
+    <div class="team">${MEETK.map(x=>`<button type="button" class="tm" data-meetnow="${x[0]}" ${meetBusy?"disabled":""}><span class="tm-i">${x[3]}</span><b>${meetBusy===x[0]?"جارٍ الاجتماع…":x[1]}</b><small>${x[2]}</small></button>`).join("")}</div>
+    ${L.length?L.slice(0,60).map((h,i)=>`<details class="au" ${i===0?"open":""}><summary>${K(h.role)[3]} ${esc(h.date)} · ${esc(h.q||K(h.role)[1])}</summary><div class="md">${mdHtml(h.a)}</div><div class="toolbar"><button class="btn ghost sm" data-meetp="${esc(h.id)}">طباعة / PDF</button></div></details>`).join(""):`<p class="muted">لا توجد محاضر بعد. أول اجتماع صباحي غداً 6:00، أو اضغط أحد الأزرار أعلاه.</p>`}
+  </section>`; }
+async function meetNow(k){ if(typeof gsCall!=="function"){ toast("متاح في التطبيق فقط"); return; } meetBusy=k; render(); toast("الفريق مجتمع الآن… حتى دقيقتين");
+  try{ await gsCall("apiMeetNow",k); gsApply(await gsCall("apiGetAll")); toast(k==="evening"?"حُفظ المحضر ✓":"حُفظ المحضر وأُرسل إلى بريدك ✓"); }catch(e){ toast((e&&e.message)||"تعذّر الاجتماع"); } meetBusy=""; render(); }
+document.addEventListener("click",ev=>{ const t=ev.target.closest("[data-meetnow],[data-meetp]"); if(!t) return; ev.stopImmediatePropagation();
+  if(t.dataset.meetnow){ if(!meetBusy) meetNow(t.dataset.meetnow); return; } doPrint("meet",t.dataset.meetp); },true);
+document.addEventListener("change",ev=>{ if(ev.target.id==="meet-f"){ ev.stopImmediatePropagation(); meetF=ev.target.value; render(); } },true);
 async function teamAsk(){ if(typeof gsCall!=="function"){ toast("متاح في تطبيق الجوال/الكمبيوتر فقط"); return; } const q=(document.getElementById("tm-q")?.value||"").trim(); if(teamRole!=="daily"&&teamRole!=="meeting"&&!q&&!confirm("بدون سؤال سيُعد "+TEAM.find(x=>x[0]===teamRole)[1]+" تقريره العام. متابعة؟")) return;
   teamBusy=true; teamAns=null; render(); try{ const r=await gsCall("apiAdvisor",teamRole,q,teamCtx()); teamAns={a:r.a}; try{ gsApply(await gsCall("apiGetAll")); }catch(e){} }catch(e){ teamAns={err:(e&&e.message)||"تعذّر"}; } teamBusy=false; render(); }
 document.addEventListener("click",ev=>{ const t=ev.target.closest("[data-kd],#kd-x,[data-team],#tm-go,.dlg#kd-dlg"); if(!t) return;
@@ -1803,6 +1819,7 @@ function words(n){
 }
 function buildPrint(kind, arg){
   const t=today(), m=month(t);
+  if(kind==="meet"){ const h=(S.advice||[]).find(a=>a.id===arg); if(!h) return null; return [String(h.q||"محضر اجتماع"), `<style>.md h2,.md h3{color:#1F5FA8}</style>${rptHead(String(h.q||"محضر اجتماع فريق الإدارة"), esc(h.date))}<div class="md">${mdHtml(h.a)}</div><div class="foot"><span>اعتماد صاحب الشركة: ............</span></div>`]; }
   if(kind==="exp"){
     const list=S.expenses.filter(e=>!finMonth||month(e.date)===finMonth).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""));
     const cats={}; list.forEach(e=>cats[e.cat]=(cats[e.cat]||0)+(+e.amount||0));
