@@ -228,9 +228,8 @@ body.not-owner .own{display:none!important}
 </header>
 
 <main class="wrap" id="app"></main>
-<footer class="credit">تطوير وإدارة النظام: <b>أحمد عبد العزيز</b> · <a href="tel:+96895258470" dir="ltr">95258470</a></footer>
 <div class="toast" id="toast" hidden></div>
-<div id="login" class="login" hidden><form id="f-login" class="panel"><h2>مصطفى المسارة – يتي بلازا</h2><label><span>الاسم</span><input id="l-name" autocomplete="username" required></label><label><span>كلمة المرور</span><input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password" required></label><button class="btn" type="submit">دخول</button><p class="note" id="l-err"></p><p class="note" style="text-align:center">تطوير وإدارة النظام: أحمد عبد العزيز · 95258470</p></form></div>
+<div id="login" class="login" hidden><form id="f-login" class="panel"><h2>مصطفى المسارة – يتي بلازا</h2><label><span>الاسم</span><input id="l-name" autocomplete="username" required></label><label><span>كلمة المرور</span><input id="l-pin" type="password" inputmode="numeric" autocomplete="current-password" required></label><button class="btn" type="submit">دخول</button><p class="note" id="l-err"></p></form></div>
 <div id="edit-dlg" class="dlg" hidden></div>
 <div id="kd-dlg" class="dlg" hidden></div>
 
@@ -1048,7 +1047,12 @@ function heroHtml(){
     <div class="hero-s"><span><b data-cu="${pres}" data-dec="0">${pres}</b> حاضر من ${activeWorkers().length}</span><span><b data-cu="${prodOn(t).toFixed(3)}">${omr(prodOn(t))}</b> إنتاج اليوم</span><span><b data-cu="${(CV-ev).toFixed(3)}">${omr(CV-ev)}</b> متبقٍ من العقد</span></div></div>
     <div class="ring"><svg viewBox="0 0 100 100" width="104" height="104"><circle cx="50" cy="50" r="${R}" class="ring-bg"/><circle cx="50" cy="50" r="${R}" class="ring-fg" stroke-dasharray="${L}" data-len="${L}" data-p="${L*(1-pct/100)}" style="stroke-dashoffset:${L*(1-pct/100)}"/></svg><div class="ring-v"><b>${n0(pct)}%</b><span>الإنجاز</span></div></div></section>`;
 }
-function mdHtml(t){ const e=esc(String(t||"")); return e.split(/\n/).map(l=>{ let x=l.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>"); if(/^#{1,3}\s/.test(x)) return `<h3>${x.replace(/^#{1,3}\s/,"")}</h3>`; if(/^\s*[-*•]\s+/.test(x)) return `<li>${x.replace(/^\s*[-*•]\s+/,"")}</li>`; if(/^\s*\d+[.)-]\s+/.test(x)) return `<li class="ol">${x.trim()}</li>`; if(/^\|/.test(x)) return `<div class="mdt">${x}</div>`; return x.trim()?`<p>${x}</p>`:""; }).join(""); }
+function mdHtml(t){ const e=esc(String(t||"")); const L=e.split(/\n/); let out="", tb=[]; const inl=x=>x.replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
+  const flush=()=>{ if(!tb.length) return; const rows=tb.filter(r=>!/^\s*\|?\s*:?-{2,}/.test(r)).map(r=>r.trim().replace(/^\||\|$/g,"").split("|").map(c=>inl(c.trim())));
+    out+=`<div class="tbl"><table>${rows.map((r,i)=>`<tr>${r.map(c=>i===0?`<th>${c}</th>`:`<td>${c}</td>`).join("")}</tr>`).join("")}</table></div>`; tb=[]; };
+  L.forEach(l=>{ if(/^\s*\|/.test(l)){ tb.push(l); return; } flush(); const x=inl(l);
+    if(/^#{1,3}\s/.test(x)) out+=`<h3>${x.replace(/^#{1,3}\s/,"")}</h3>`; else if(/^\s*[-*•]\s+/.test(x)) out+=`<li>${x.replace(/^\s*[-*•]\s+/,"")}</li>`; else if(/^\s*\d+[.)-]\s+/.test(x)) out+=`<li class="ol">${x.trim()}</li>`; else if(x.trim()) out+=`<p>${x}</p>`; });
+  flush(); return out; }
 /* ---------- فريق الإدارة الذكي ---------- */
 const TEAM=[["daily","ملخص اليوم","المشاكل والحلول والمطلوب منك","📋"],["meeting","اجتماع الإدارة","كل الأدوار + خطة منسقة","🤝"],["gm","المدير العام","الأولويات والقرارات","🧭"],["cfo","المدير المالي","السيولة والربحية","💰"],["acc","المحاسب","القيود والرواتب والضريبة","🧾"],["hr","الموارد البشرية","العمال والإنتاجية والقانون","👷"],["bd","تطوير الأعمال","مشاريع جديدة وتسعير","📈"],["eng","مهندس الحلول والابتكار","السبب الجذري وحلول مبتكرة","🛠️"]];
 let teamRole="daily", teamBusy=false, teamAns=null;
@@ -1809,7 +1813,7 @@ function docHtml(title, body, dir="rtl"){
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap"><style>${PCSS}</style></head><body>${body}
 <script>window.addEventListener("load",function(){setTimeout(function(){window.print()},400)})<\/script></body></html>`;
 }
-function rptHead(title, sub){ return `<div class="head"><div><h1>${esc(title)}</h1><div class="muted">${esc(sub||"")}</div></div><div class="muted" style="text-align:end">Mostafa Almasara Trad Investment SPC<br>مشروع يتي بلازا · ${today()}<br>إعداد النظام: أحمد عبد العزيز · 95258470</div></div>`; }
+function rptHead(title, sub){ return `<div class="head"><div><h1>${esc(title)}</h1><div class="muted">${esc(sub||"")}</div></div><div class="muted" style="text-align:end">Mostafa Almasara Trad Investment SPC<br>مشروع يتي بلازا · ${today()}</div></div>`; }
 function words(n){
   const a=["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten","Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"],b=["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
   const h=x=>{ let s=""; if(x>=100){ s+=a[Math.floor(x/100)]+" Hundred"; x%=100; if(x) s+=" "; } if(x>=20){ s+=b[Math.floor(x/10)]+(x%10?"-"+a[x%10]:""); } else if(x) s+=a[x]; return s; };
