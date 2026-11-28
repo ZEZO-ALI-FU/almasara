@@ -1196,6 +1196,29 @@ document.addEventListener("click",async ev=>{ const t=ev.target.closest("[data-l
   for(const m of x.ms){ const r=payRow(m,w); if(!r.paid&&r.net>0) await setDoc("payroll/"+m+"_"+w.id,{month:m,wid:w.id,paid:true,paidDate:today(),paidAmount:+r.net.toFixed(3),by:me||null,note:"تسوية مستحقات نهاية خدمة"}); }
   await upd("workers/"+w.id,{settledAt:today(),settledAmount:+x.due.toFixed(3)}); render(); },true);
 
+/* ---------- أكل عمال مقاول الباطن في كامب بهوان: حركة دخول/خروج + كشف يومي ---------- */
+let sfSel="";
+function subFoodDays(s){ const f=food(), out=[]; if(!s) return out; const c=(Array.isArray(s.crew)?s.crew:[]).map(x=>x.from).sort()[0]; if(!c) return out; let cum=0;
+  eachDay(c<f.start?f.start:c, today(), d=>{ const n=subCrewOn(s,d), a=subFoodOn(s,d); cum+=a; out.push({d,n,a,cum}); }); return out; }
+function vSubFood(){ if(!S.subs.length) return ""; if(!sfSel||!S.subs.some(x=>x.id===sfSel)) sfSel=S.subs[0].id; const s=S.subs.find(x=>x.id===sfSel); const f=food(); const D=subFoodDays(s); const now=subCrewOn(s,today());
+  const moves=(Array.isArray(s.crew)?s.crew:[]).slice().sort((a,b)=>a.from.localeCompare(b.from));
+  return `<section class="panel"><div class="row"><h2>أكل عمال مقاول الباطن – كامب بهوان</h2><div class="toolbar"><select id="sf-sub" aria-label="المقاول">${S.subs.map(x=>`<option value="${esc(x.id)}" ${x.id===sfSel?"selected":""}>${esc(x.name)}</option>`).join("")}</select><button class="btn ghost sm" data-print="subfood">طباعة كشف الأكل</button></div></div>
+    <p class="note">سجّل فقط حركة العمال: كم دخل الكامب وكم خرج ومتى. يحسب التطبيق كل يوم: عدد العمال × ${omr(f.rate)} ر.ع (سعر الوجبات اليومي) ابتداءً من ${esc(f.start)}، ويخصمه من رصيد المقاول.</p>
+    <form class="entry" id="f-sfmove"><label>الحركة<select id="sf-type"><option value="in">دخل الكامب</option><option value="out">خرج من الكامب</option><option value="set">العدد الكلي الآن</option></select></label>
+      <label>عدد العمال<input type="number" id="sf-n" min="0" step="1" required></label><label>التاريخ<input type="date" id="sf-date" value="${today()}" max="${today()}" required></label><button class="btn" type="submit">حفظ الحركة</button></form>
+    <div class="kpis"><div class="kpi"><span class="l">في الكامب اليوم</span><span class="v">${now}</span><span class="n">عامل</span></div><div class="kpi"><span class="l">أكل اليوم</span><span class="v">${omr(subFoodOn(s,today()))}</span></div><div class="kpi"><span class="l">إجمالي الأكل المخصوم</span><span class="v neg">${omr(subFood(s))}</span><span class="n">${D.length} يوم</span></div></div>
+    ${moves.length?`<details><summary>سجل الحركة (${moves.length})</summary><div class="tbl"><table><thead><tr><th>من تاريخ</th><th class="num">العدد</th><th>الحركة</th><th></th></tr></thead><tbody>${moves.map((m,i)=>{ const prev=i?Number(moves[i-1].n)||0:0, dlt=(Number(m.n)||0)-prev; return `<tr><td>${esc(m.from)}</td><td class="num">${m.n}</td><td>${i===0?"بداية":dlt>0?"دخل "+dlt:dlt<0?"خرج "+(-dlt):"—"}</td><td><button class="del" data-sfdel="${esc(m.from)}">حذف</button></td></tr>`; }).join("")}</tbody></table></div></details>`:""}
+    ${D.length?`<div class="tbl"><table><thead><tr><th>التاريخ</th><th class="num">عدد العمال</th><th class="num">الأكل ر.ع</th><th class="num">التراكمي</th></tr></thead><tbody>${D.slice().reverse().map(r=>`<tr><td>${r.d} ${DAYN?DAYN[new Date(r.d+"T12:00:00").getDay()]:""}</td><td class="num">${r.n}</td><td class="num">${omr(r.a)}</td><td class="num">${omr(r.cum)}</td></tr>`).join("")}</tbody></table></div>`:`<p class="muted">لم تُسجَّل أي حركة بعد.</p>`}
+  </section>`; }
+function subFoodPrint(){ const s=S.subs.find(x=>x.id===sfSel)||S.subs[0]; if(!s) return null; const D=subFoodDays(s); if(!D.length) return null;
+  return ["كشف أكل عمال "+s.name, `${rptHead("كشف أكل عمال مقاول الباطن – كامب بهوان", s.name+" · سعر الوجبات اليومي "+omr(food().rate)+" ر.ع")}<table><thead><tr><th>التاريخ</th><th class="n">عدد العمال</th><th class="n">الأكل ر.ع</th><th class="n">التراكمي</th></tr></thead><tbody>${D.map(r=>`<tr><td>${r.d}</td><td class="n">${r.n}</td><td class="n">${omr(r.a)}</td><td class="n">${omr(r.cum)}</td></tr>`).join("")}</tbody><tfoot><tr><td>الإجمالي</td><td class="n">${sum(D,r=>r.n)} عامل·يوم</td><td class="n">${omr(sum(D,r=>r.a))}</td><td></td></tr></tfoot></table><div class="foot"><span>المقاول: ............</span><span>المحاسب: ............</span><span>المدير: ............</span></div>`]; }
+document.addEventListener("change",ev=>{ if(ev.target.id==="sf-sub"){ ev.stopImmediatePropagation(); sfSel=ev.target.value; render(); } },true);
+document.addEventListener("submit",async ev=>{ if(ev.target.id!=="f-sfmove") return; ev.preventDefault(); ev.stopImmediatePropagation(); const s=S.subs.find(x=>x.id===sfSel); if(!s) return;
+  const n=Number(v("sf-n"))||0, d=v("sf-date"), ty=v("sf-type"); if(!d) return; const cur=subCrewOn(s,d); const tot=ty==="in"?cur+n:ty==="out"?Math.max(0,cur-n):n;
+  const crew=[...(Array.isArray(s.crew)?s.crew:[]).filter(x=>x.from!==d),{from:d,n:tot}].sort((a,b)=>a.from.localeCompare(b.from)); await upd("subs/"+s.id,{crew}); toast(`أصبح في الكامب ${tot} عامل من ${d}`); render(); },true);
+document.addEventListener("click",async ev=>{ const t=ev.target.closest("[data-sfdel]"); if(!t) return; ev.stopImmediatePropagation(); const s=S.subs.find(x=>x.id===sfSel); if(!s||!confirm("حذف حركة "+t.dataset.sfdel+"؟")) return;
+  await upd("subs/"+s.id,{crew:(s.crew||[]).filter(x=>x.from!==t.dataset.sfdel)}); render(); },true);
+
 function vDash(){
   const t=today(), y=addDays(t,-1), ws=weekStart(t), m=month(t);
   const pT=prodOn(t), pY=prodOn(y), pW=prodRange(ws,t), pWp=prodRange(addDays(ws,-7),addDays(t,-7)), pM=prodRange(m+"-01",t);
@@ -1707,6 +1730,7 @@ function vSubs(){
     </form>
     ${S.subs.length?`<div class="tbl"><table><thead><tr><th>المقاول</th><th>التخصص</th><th class="num">قيمة أعماله</th><th class="num">المدفوع</th><th class="num">عماله في سكن بهوان</th><th class="num">خصم الأكل</th><th class="num">الرصيد المستحق له</th><th></th><th></th></tr></thead><tbody>${S.subs.map(s=>{const b=subBal(s.id);return `<tr><td>${esc(s.name)} <span class="ref">${esc(s.phone)}</span></td><td>${esc(s.trade)}</td><td class="num">${omr(b.w)}</td><td class="num">${omr(b.p)}</td><td class="num"><b>${subCrewOn(s,today())}</b><br><button class="btn ghost sm" data-subcrew="${esc(s.id)}">تغيير العدد</button></td><td class="num neg">${omr(b.fd)}</td><td class="num"><b class="${b.b>0?"neg":""}">${omr(b.b)}</b></td><td><button class="btn ghost sm" data-substmt="${esc(s.id)}">كشف حساب</button></td><td>${delBtn("subs",s.id)}</td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">لا يوجد مقاولو باطن.</div>`}
   </section>
+  ${vSubFood()}
   ${S.subs.length?`<div class="grid2">
   <section class="panel">
     <h2>أعمال مقاول الباطن</h2>
@@ -1899,6 +1923,7 @@ function words(n){
 function buildPrint(kind, arg){
   const t=today(), m=month(t);
   if(kind==="leavers") return leaversPrint();
+  if(kind==="subfood") return subFoodPrint();
   if(kind==="meet"){ const h=(S.advice||[]).find(a=>a.id===arg); if(!h) return null; return [String(h.q||"محضر اجتماع"), `<style>.md h2,.md h3{color:#1F5FA8}</style>${rptHead(String(h.q||"محضر اجتماع فريق الإدارة"), esc(h.date))}<div class="md">${mdHtml(h.a)}</div><div class="foot"><span>اعتماد صاحب الشركة: ............</span></div>`]; }
   if(kind==="exp"){
     const list=S.expenses.filter(e=>!finMonth||month(e.date)===finMonth).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||""));
