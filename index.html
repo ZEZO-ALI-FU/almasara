@@ -473,7 +473,8 @@ function vFood(){
     <div class="kpis">
       <div class="kpi"><span class="l">خصم اليوم</span><span class="v">${omr(foodOn(t))}</span><span class="n">${foodCount(t)} عامل × 3 وجبات</span></div>
       <div class="kpi"><span class="l">خصم شهر ${m}</span><span class="v">${omr(foodMonth(m))}</span></div>
-      <div class="kpi"><span class="l">الإجمالي منذ ${esc(f.start)}</span><span class="v neg">${omr(foodTotal())}</span><span class="n">يُخصم من مستحقاتكم لدى بهوان</span></div>
+      <div class="kpi"><span class="l">الإجمالي منذ ${esc(f.start)}</span><span class="v neg">${omr(foodTotal())}</span><span class="n">يُخصم من مستحقاتكم لدى بهوان (عمالكم فقط)</span></div>
+      ${S.subs.some(x=>subFood(x))?`<div class="kpi"><span class="l">أكل عمال مقاولي الباطن</span><span class="v">${omr(subFoodAll())}</span><span class="n">تخصمه بهوان منكم ويُسترد من المقاولين · اليوم ${sum(S.subs,x=>subCrewOn(x,t))} عامل</span></div>`:""}
     </div>
     ${isMgr()?`<form class="entry" id="f-food">
       <label>بداية الخصم<input type="date" id="fd-start" value="${esc(f.start)}"></label>
@@ -1180,6 +1181,10 @@ function leaversPrint(){ const L=leaversAll(); if(!L.length) return null;
   ${L.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.w.name)}</td><td>${x.from}</td><td>${x.to}</td><td>${esc(leaveName(x.w.leftReason))}</td><td class="n">${x.P}</td><td class="n">${n0(x.m2)}</td><td class="n">${omr(x.perDay)}</td><td class="n">${omr(x.gross)}</td><td class="n">${omr(x.adv)}</td><td class="n">${omr(x.paid)}</td><td class="n">${omr(x.due)}${x.owe?` (مدين ${omr(x.owe)})`:""}</td><td>${x.settled?"سُوّيت "+esc(x.w.settledAt):x.w.holdDues?"محجوزة":"لم تُصرف"}</td><td>${x.rep?esc(x.rep.name):"—"}</td><td class="n">${x.gapDays}</td><td class="n">${omr(x.lost)}</td></tr>`).join("")}</tbody>
   <tfoot><tr><td colspan="11">الإجمالي (${L.length} عامل)</td><td class="n">${omr(sum(L.filter(x=>!x.settled),x=>x.due))}</td><td colspan="3"></td><td class="n">${omr(sum(L,x=>x.lost))}</td></tr></tfoot></table>
   <div class="foot"><span>المحاسب: ............</span><span>المدير: ............</span><span>اعتماد صاحب الشركة: ............</span></div>`]; }
+document.addEventListener("click",async ev=>{ const t=ev.target.closest("[data-subcrew]"); if(!t) return; ev.stopImmediatePropagation(); const s=S.subs.find(x=>x.id===t.dataset.subcrew); if(!s) return;
+  const n=prompt("عدد عمال "+s.name+" الساكنين في سكن بهوان:", String(subCrewOn(s,today())||"")); if(n===null||n===""||isNaN(Number(n))) return;
+  const from=prompt("ابتداءً من تاريخ (YYYY-MM-DD):", (s.crew&&s.crew.length)?today():food().start); if(!from||!/^\d{4}-\d{2}-\d{2}$/.test(from)){ toast("تاريخ غير صحيح"); return; }
+  const crew=[...(Array.isArray(s.crew)?s.crew:[]).filter(x=>x.from!==from),{from,n:Number(n)}].sort((a,b)=>a.from.localeCompare(b.from)); await upd("subs/"+s.id,{crew}); render(); },true);
 document.addEventListener("submit",async ev=>{ if(ev.target.id!=="f-leave") return; ev.preventDefault(); ev.stopImmediatePropagation();
   const id=v("lv-w"), end=v("lv-end"); if(!id||!end){ toast("اختر العامل وآخر يوم"); return; } const w=S.workers.find(x=>x.id===id); if(!w) return;
   if(!confirm(`تسجيل ترك ${w.name} العمل، آخر يوم ${end}؟`)) return;
@@ -1677,7 +1682,12 @@ function vBill(){
 }
 
 /* ---------- مقاولو الباطن ---------- */
-function subBal(id){ const w=sum(S.subWork.filter(x=>x.subId===id),x=>(Number(x.qty)||0)*(Number(x.rate)||0)); const p=sum(S.subPay.filter(x=>x.subId===id),x=>x.amount); return {w,p,b:w-p}; }
+function subCrewOn(s,d){ const c=(s&&Array.isArray(s.crew)?s.crew:[]).filter(x=>x.from&&x.from<=d).sort((a,b)=>a.from.localeCompare(b.from)); return c.length?Number(c[c.length-1].n)||0:0; }
+function subFoodOn(s,d){ const f=food(); if(!f.on||!f.rate||d<f.start||d>today()) return 0; return subCrewOn(s,d)*(Number(f.rate)||0); }
+function subFoodRange(s,a,b){ const f=food(); let t=0; let d=a<f.start?f.start:a; const e=b>today()?today():b; let g=0; while(d<=e&&g++<1000){ t+=subFoodOn(s,d); d=addDays(d,1); } return t; }
+const subFood=s=>subFoodRange(s,food().start,today());
+const subFoodAll=()=>sum(S.subs,s=>subFood(s));
+function subBal(id){ const s=S.subs.find(x=>x.id===id); const w=sum(S.subWork.filter(x=>x.subId===id),x=>(Number(x.qty)||0)*(Number(x.rate)||0)); const p=sum(S.subPay.filter(x=>x.subId===id),x=>x.amount); const fd=subFood(s); return {w,p,fd,b:w-p-fd}; }
 function vSubs(){
   const sn=Object.fromEntries(S.subs.map(s=>[s.id,s.name]));
   if(!subSel && S.subs[0]) subSel=S.subs[0].id;
@@ -1685,15 +1695,17 @@ function vSubs(){
   return `
   <section class="panel">
     <h2>مقاولو الباطن</h2>
-    <p class="note">إذا أعطيتم جزءاً من العمل لمقاول باطن: سجّلوا ما ينجزه وما تدفعونه له. انتبهوا: العقد (مادة 20 و13-e) يمنع التلزيم بدون موافقة بهوان المكتوبة.</p>
+    <p class="note">إذا أعطيتم جزءاً من العمل لمقاول باطن: سجّلوا ما ينجزه وما تدفعونه له. عمال المقاول الساكنون في سكن بهوان تخصم بهوان أكلهم منكم، فيُخصم من المقاول بنفس سعر الوجبات اليومي ومن نفس تاريخ بداية الخصم، ويظهر في كشف حسابه. انتبهوا: العقد (مادة 20 و13-e) يمنع التلزيم بدون موافقة بهوان المكتوبة.</p>
     <form class="entry" id="f-sub">
       <label>اسم المقاول<input id="s-name" required></label>
       <label>التخصص<input id="s-trade" placeholder="دهان / جبس / عمالة"></label>
       <label>الهاتف<input id="s-phone"></label>
       <label>شروط الاتفاق<input id="s-terms" placeholder="مثال: 0.6 ر.ع/م² – دفع أسبوعي"></label>
+      <label>عماله في سكن بهوان<input type="number" id="s-crew" min="0" step="1" placeholder="0"></label>
+      <label>من تاريخ<input type="date" id="s-crewfrom" value="${esc(food().start)}"></label>
       <button class="btn" type="submit">إضافة مقاول</button>
     </form>
-    ${S.subs.length?`<div class="tbl"><table><thead><tr><th>المقاول</th><th>التخصص</th><th class="num">قيمة أعماله</th><th class="num">المدفوع</th><th class="num">الرصيد المستحق له</th><th></th><th></th></tr></thead><tbody>${S.subs.map(s=>{const b=subBal(s.id);return `<tr><td>${esc(s.name)} <span class="ref">${esc(s.phone)}</span></td><td>${esc(s.trade)}</td><td class="num">${omr(b.w)}</td><td class="num">${omr(b.p)}</td><td class="num"><b class="${b.b>0?"neg":""}">${omr(b.b)}</b></td><td><button class="btn ghost sm" data-substmt="${esc(s.id)}">كشف حساب</button></td><td>${delBtn("subs",s.id)}</td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">لا يوجد مقاولو باطن.</div>`}
+    ${S.subs.length?`<div class="tbl"><table><thead><tr><th>المقاول</th><th>التخصص</th><th class="num">قيمة أعماله</th><th class="num">المدفوع</th><th class="num">عماله في سكن بهوان</th><th class="num">خصم الأكل</th><th class="num">الرصيد المستحق له</th><th></th><th></th></tr></thead><tbody>${S.subs.map(s=>{const b=subBal(s.id);return `<tr><td>${esc(s.name)} <span class="ref">${esc(s.phone)}</span></td><td>${esc(s.trade)}</td><td class="num">${omr(b.w)}</td><td class="num">${omr(b.p)}</td><td class="num"><b>${subCrewOn(s,today())}</b><br><button class="btn ghost sm" data-subcrew="${esc(s.id)}">تغيير العدد</button></td><td class="num neg">${omr(b.fd)}</td><td class="num"><b class="${b.b>0?"neg":""}">${omr(b.b)}</b></td><td><button class="btn ghost sm" data-substmt="${esc(s.id)}">كشف حساب</button></td><td>${delBtn("subs",s.id)}</td></tr>`}).join("")}</tbody></table></div>`:`<div class="empty">لا يوجد مقاولو باطن.</div>`}
   </section>
   ${S.subs.length?`<div class="grid2">
   <section class="panel">
@@ -1944,7 +1956,8 @@ function buildPrint(kind, arg){
   }
   if(kind==="sub"){
     const s=S.subs.find(x=>x.id===arg); if(!s) return null; const b=subBal(s.id);
-    const lines=[...S.subWork.filter(x=>x.subId===s.id).map(x=>({date:x.date,d:`${x.desc} (${n0(x.qty)} × ${omr(x.rate)})`,dr:x.qty*x.rate,cr:0})),...S.subPay.filter(x=>x.subId===s.id).map(x=>({date:x.date,d:"دفعة "+(x.ref||""),dr:0,cr:+x.amount}))].sort((a,b)=>a.date.localeCompare(b.date));
+    const fdl=[]; { const f=food(); if(f.on&&f.start<=today()) monthsBetween(f.start,today()).forEach(m=>{ const a=m+"-01"<f.start?f.start:m+"-01", e0=`${m}-${String(daysIn(m)).padStart(2,"0")}`, e=e0>today()?today():e0; let days=0, wd=0; eachDay(a,e,d=>{ const n=subCrewOn(s,d); if(n){ days++; wd+=n; } }); const amt=subFoodRange(s,a,e); if(amt) fdl.push({date:e,d:`خصم وجبات بهوان ${m}: ${wd} عامل·يوم × ${omr(f.rate)}`,dr:0,cr:amt}); }); }
+    const lines=[...S.subWork.filter(x=>x.subId===s.id).map(x=>({date:x.date,d:`${x.desc} (${n0(x.qty)} × ${omr(x.rate)})`,dr:x.qty*x.rate,cr:0})),...S.subPay.filter(x=>x.subId===s.id).map(x=>({date:x.date,d:"دفعة "+(x.ref||""),dr:0,cr:+x.amount})),...fdl].sort((a,b)=>a.date.localeCompare(b.date));
     let bal=0;
     return ["كشف حساب "+s.name, `${rptHead("كشف حساب مقاول باطن", s.name+(s.terms?" · "+s.terms:""))}<table><thead><tr><th>التاريخ</th><th>البيان</th><th class="n">أعمال (له)</th><th class="n">مدفوع</th><th class="n">الرصيد</th></tr></thead><tbody>${lines.map(l=>{bal+=l.dr-l.cr;return `<tr><td>${esc(l.date)}</td><td>${esc(l.d)}</td><td class="n">${l.dr?omr(l.dr):""}</td><td class="n">${l.cr?omr(l.cr):""}</td><td class="n">${omr(bal)}</td></tr>`}).join("")}</tbody><tfoot><tr><td colspan="2">الإجمالي</td><td class="n">${omr(b.w)}</td><td class="n">${omr(b.p)}</td><td class="n">${omr(b.b)}</td></tr></tfoot></table><div class="foot"><span>توقيع المقاول: ............</span><span>المدير: ............</span></div>`];
   }
@@ -2028,7 +2041,7 @@ document.addEventListener("submit", async ev=>{
   if(f.id==="f-iss") ok=await add("issues",{date:v("i-date"),text:v("i-text"),days:Number(v("i-days"))||0,status:"open"});
   if(f.id==="f-eq") ok=await add("equipment",{name:v("q-name"),code:v("q-code"),own:v("q-own"),exp:v("q-exp"),price:Number(v("q-price"))||0,buyDate:v("q-buy")||today(),life:Number(v("q-life"))||3});
   if(f.id==="f-inv"){ const c=invCalc(invFrom,invTo); if(c.net<=0){ toast("لا توجد قيمة في هذه الفترة"); return; } ok=await add("invoices",{no:v("v-no"),from:invFrom,to:invTo,amount:+c.net.toFixed(3),status:"sub",paidAmount:0,paidDate:""}); if(ok){ invFrom=""; for(const o of S.opening.filter(o=>!o.billed)) await upd("opening/"+o.id,{billed:true}); } }
-  if(f.id==="f-sub") ok=await add("subs",{name:v("s-name"),trade:v("s-trade"),phone:v("s-phone"),terms:v("s-terms")});
+  if(f.id==="f-sub") ok=await add("subs",{name:v("s-name"),trade:v("s-trade"),phone:v("s-phone"),terms:v("s-terms"),crew:Number(v("s-crew"))?[{from:v("s-crewfrom")||food().start,n:Number(v("s-crew"))}]:[]});
   if(f.id==="f-subw") ok=await add("subWork",{subId:v("sw-sub"),date:v("sw-date"),desc:v("sw-desc"),qty:Number(v("sw-qty")),rate:Number(v("sw-rate"))});
   if(f.id==="f-subp") ok=await add("subPay",{subId:v("sp-sub"),date:v("sp-date"),amount:Number(v("sp-amt")),ref:v("sp-ref")});
   if(f.id==="f-bud"){ await saveSettings({budget:[...(st().budget||[]),{name:v("b-name"),monthly:Number(v("b-amt"))||0}]}); ok=true; }
